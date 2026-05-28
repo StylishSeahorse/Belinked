@@ -152,6 +152,23 @@ export async function deleteBlockAction(formData: FormData) {
   redirect("/admin/blocks");
 }
 
+export async function reorderBlocksAction(ids: string[]) {
+  await requireOwner();
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (!uniqueIds.length) return;
+
+  await prisma.$transaction(
+    uniqueIds.map((id, index) =>
+      prisma.block.update({
+        where: { id },
+        data: { position: index + 1 }
+      })
+    )
+  );
+  await prisma.auditLog.create({ data: { action: "blocks.reordered", metadata: JSON.stringify({ count: uniqueIds.length }) } });
+  revalidatePath("/");
+}
+
 export async function saveThemeAction(formData: FormData) {
   await requireOwner();
   const id = String(formData.get("id") || "");

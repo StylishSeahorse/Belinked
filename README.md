@@ -10,6 +10,7 @@ This project is intentionally original in branding, UI, copy, and implementation
 - Private owner dashboard served from `/admin`
 - One owner account, no public registration, no teams
 - Ordered link and content blocks with featured and standard layouts
+- Seamless block reordering with drag-and-drop on desktop and up/down controls on touch devices
 - Video, music, podcast, newsletter, calendar, contact, embed, product, and subscriber blocks
 - Social icon row with top or bottom placement
 - Theme editor with colors, fonts, layout, shadows, button styling, and uploaded background images
@@ -136,6 +137,7 @@ Belinked is local-first and currently uses local storage only.
 
 - Link blocks with featured and standard display
 - Type-specific admin fields
+- Drag-and-drop ordering in the admin dashboard
 - Scheduling, hidden, archived, and expired states
 - Media upload or media URL
 - Link metadata fetching for title and image
@@ -145,6 +147,7 @@ Belinked is local-first and currently uses local storage only.
 
 - Instagram, Facebook, YouTube, Spotify, SoundCloud, TikTok, X, Telegram, Twitch, Website
 - Top or bottom placement on the public page
+- Platform icons with live preview
 - Reorderable by numeric position
 
 ### Themes
@@ -155,6 +158,7 @@ Belinked is local-first and currently uses local storage only.
 - Button styling
 - Font family
 - Radius, shadows, layout
+- Darker, polished admin editing interface
 
 ### Analytics
 
@@ -188,8 +192,10 @@ See [docs/security-checklist.md](/C:/Users/brandon.alloway/OneDrive%20-%20morris
 Belinked is already runnable locally with Docker and includes:
 
 - Authenticated admin dashboard
+- Dark-themed admin UI with mobile navigation
 - Public profile at `/`
 - Block editing
+- Drag-and-drop block ordering
 - Social management
 - Theme customization
 - Local uploads
