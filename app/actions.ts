@@ -7,6 +7,7 @@ import { BlockType } from "@prisma/client";
 import { createOwner, login, logout, requireOwner } from "@/lib/auth";
 import { addUtm } from "@/lib/blocks";
 import { prisma } from "@/lib/prisma";
+import { normalizeSmtpConfig, testSmtpConnection } from "@/lib/smtp-test";
 import { defaultThemes } from "@/lib/themes";
 import { saveUploadedImage, saveUploadedMedia, saveUploadedVideo } from "@/lib/uploads";
 import { blockSchema, profileSchema, shortLinkSchema, assertSafeRedirect } from "@/lib/validation";
@@ -38,6 +39,8 @@ async function writePlatformSettings(value: Record<string, unknown>) {
     }
   });
 }
+
+export type SmtpTestActionState = { ok: boolean; message: string } | null;
 
 export async function setupAction(_: unknown, formData: FormData) {
   await createOwner(String(formData.get("email")), String(formData.get("password")), String(formData.get("displayName")));
@@ -242,6 +245,13 @@ export async function saveShortLinkAction(formData: FormData) {
 export async function saveSettingsAction(formData: FormData) {
   await requireOwner();
   const current = await readPlatformSettings();
+  const value = platformSettingsFromForm(formData, current);
+  await writePlatformSettings(value);
+  redirect("/admin/settings");
+}
+
+function platformSettingsFromForm(formData: FormData, current: Record<string, unknown>) {
+  const currentSmtp = current.smtp as { password?: string } | undefined;
   const smtpPassword = String(formData.get("smtpPassword") || "");
   const value = {
     name: formData.get("name"),
@@ -254,13 +264,32 @@ export async function saveSettingsAction(formData: FormData) {
       port: Number(formData.get("smtpPort") || 587),
       secure: bool(formData.get("smtpSecure")),
       user: formData.get("smtpUser"),
-      password: smtpPassword || (current.smtp as { password?: string } | undefined)?.password || "",
+      password: smtpPassword || currentSmtp?.password || "",
       fromName: formData.get("smtpFromName"),
       fromEmail: formData.get("smtpFromEmail")
     }
   };
-  await writePlatformSettings(value);
-  redirect("/admin/settings");
+  return value;
+}
+
+export async function testSmtpSettingsAction(_: SmtpTestActionState, formData: FormData): Promise<SmtpTestActionState> {
+  await requireOwner();
+  const current = await readPlatformSettings();
+  const settings = platformSettingsFromForm(formData, current);
+  if (settings.emailProvider !== "smtp") {
+    return { ok: false, message: "Switch the email provider to smtp before testing the connection." };
+  }
+
+  try {
+    const smtp = normalizeSmtpConfig(settings.smtp as Record<string, unknown>);
+    await testSmtpConnection(smtp);
+    await prisma.auditLog.create({ data: { action: "smtp.test_succeeded", metadata: JSON.stringify({ host: smtp.host, port: smtp.port, secure: smtp.secure }) } });
+    return { ok: true, message: `SMTP connection succeeded for ${smtp.host}:${smtp.port}.` };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "SMTP connection failed.";
+    await prisma.auditLog.create({ data: { action: "smtp.test_failed", metadata: JSON.stringify({ message }) } });
+    return { ok: false, message };
+  }
 }
 
 export async function saveSocialIconAction(formData: FormData) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { changePasswordAction, saveSettingsAction } from "@/app/actions";
+import { changePasswordAction } from "@/app/actions";
+import { SmtpSettingsForm } from "@/components/SmtpSettingsForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,23 +26,7 @@ export default async function SettingsPage() {
   return (
     <div className="grid max-w-4xl gap-6">
       <h1 className="text-3xl font-black">Settings</h1>
-      <form action={saveSettingsAction} className="panel grid gap-4 md:grid-cols-2">
-        <label className="field">Platform name<input className="input" name="name" defaultValue={platform.name || "Belinked"} /></label>
-        <label className="field">Support URL<input className="input" name="supportUrl" defaultValue={platform.supportUrl || ""} /></label>
-        <label className="field md:col-span-2">Footer text<input className="input" name="footerText" defaultValue={platform.footerText || ""} /></label>
-        <div className="rounded-md border border-black/10 bg-black/[.03] p-3 text-sm font-semibold text-black/65 md:col-span-2">
-          Storage is always local for this self-hosted app.
-        </div>
-        <label className="field">Email provider<select className="input" name="emailProvider" defaultValue={platform.emailProvider || "disabled"}><option>disabled</option><option>smtp</option></select></label>
-        <label className="field">SMTP host<input className="input" name="smtpHost" defaultValue={smtp.host || ""} placeholder="smtp.example.com" /></label>
-        <label className="field">SMTP port<input className="input" name="smtpPort" type="number" defaultValue={smtp.port || 587} /></label>
-        <label className="field">SMTP username<input className="input" name="smtpUser" defaultValue={smtp.user || ""} /></label>
-        <label className="field">SMTP password<input className="input" name="smtpPassword" type="password" placeholder={smtp.password ? "Saved; leave blank to keep" : ""} /></label>
-        <label className="field">From name<input className="input" name="smtpFromName" defaultValue={smtp.fromName || platform.name || "Belinked"} /></label>
-        <label className="field">From email<input className="input" name="smtpFromEmail" type="email" defaultValue={smtp.fromEmail || ""} placeholder="noreply@example.com" /></label>
-        <label className="flex items-center gap-2 text-sm font-semibold"><input className="w-auto" type="checkbox" name="smtpSecure" defaultChecked={Boolean(smtp.secure)} /> Use TLS/SSL</label>
-        <div className="md:col-span-2"><SubmitButton>Save settings</SubmitButton></div>
-      </form>
+      <SmtpSettingsForm platform={platform} smtp={smtp} />
       <form action={changePasswordAction} className="panel grid gap-4">
         <h2 className="text-xl font-black">Password</h2>
         <label className="field">New password<input className="input" name="password" type="password" minLength={12} required /></label>

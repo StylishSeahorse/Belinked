@@ -18,12 +18,12 @@ This project is intentionally original in branding, UI, copy, and implementation
 - First-party analytics for views, clicks, CTR, referrers, browser, OS, device, and bot detection
 - Short links at `/s/{code}`
 - QR code download for the public page
-- SMTP settings for local or custom mail delivery
+- SMTP settings and connection testing for local or custom mail delivery
 - SQLite database with Prisma
 
 ## Stack
 
-- Next.js 15
+- Next.js 16
 - React 19
 - TypeScript
 - Tailwind CSS
@@ -48,12 +48,46 @@ This project is intentionally original in branding, UI, copy, and implementation
 
 ## Quick Start
 
-### Recommended: Docker
+### Recommended: Docker Compose
 
-Belinked is designed to start with:
+Belinked is designed to run as a local self-hosted app with Docker Compose. The app container serves Belinked on port `3000`, MailHog is included for local email testing on port `8025`, and Docker volumes keep the SQLite database and uploads persistent across restarts.
+
+1. Clone the repo and enter the project folder.
 
 ```bash
-docker compose up --build
+git clone https://github.com/StylishSeahorse/Belinked.git
+cd Belinked
+```
+
+2. Copy the environment example.
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The repo already includes a runnable `docker-compose.yml`. A commented template is also available at `docker-compose.example.yml` if you want to reset your local Compose file or build a clean deployment file from scratch.
+
+3. Edit `.env` and, if needed, `docker-compose.yml`.
+
+At minimum, change:
+
+- `SESSION_SECRET`
+- `SETUP_EMAIL`
+- `SETUP_PASSWORD`
+- `SETUP_DISPLAY_NAME`
+
+Use at least 32 random characters for `SESSION_SECRET`. Keep `DATABASE_URL` as `file:/app/data/belinked.db` inside Docker so the database lives in the `belinked-data` volume.
+
+4. Start the app.
+
+```bash
+docker compose up --build -d
 ```
 
 Then open:
@@ -64,9 +98,29 @@ Then open:
 
 On first run, if no owner exists yet, Belinked will send you to `/admin/setup`.
 
+To stop the app without deleting data:
+
+```bash
+docker compose down
+```
+
+To view logs:
+
+```bash
+docker compose logs -f app
+```
+
+To rebuild after pulling updates:
+
+```bash
+docker compose up --build -d
+```
+
+Do not run `docker compose down -v` unless you intentionally want to delete the local database and uploaded files.
+
 ### Environment
 
-Copy `.env.example` to `.env` and adjust values as needed.
+Copy `.env.example` to `.env` and adjust values as needed. Docker Compose can also define the same values under the `environment` section in `docker-compose.yml`; values in Compose are what the container receives at runtime.
 
 Important variables:
 
@@ -83,6 +137,18 @@ Important variables:
 
 Note:
 The current app uses the setup screen at `/admin/setup` for first-run owner creation. The `SETUP_*` values are still useful defaults for local environments and container config, but owner creation is performed through the app UI.
+
+### SMTP With Docker
+
+The example Compose file includes MailHog:
+
+- SMTP host inside Docker: `mailhog`
+- SMTP port inside Docker: `1025`
+- MailHog inbox in your browser: [http://localhost:8025](http://localhost:8025)
+
+In the admin dashboard, go to `/admin/settings`, set the email provider to `smtp`, use `mailhog` and `1025`, then click `Test SMTP connection`.
+
+For a real SMTP provider, replace the host and port, then enter the username, password, from name, and from email in the Settings screen. Belinked stores those settings locally in SQLite.
 
 ## Local Development
 
@@ -180,12 +246,12 @@ Belinked is local-first and currently uses local storage only.
 - Uploads are type- and size-restricted
 - Secrets stay server-side
 
-See [docs/security-checklist.md](/C:/Users/brandon.alloway/OneDrive%20-%20morrisgroup.com.au/Documents/Belinked/docs/security-checklist.md) for the current checklist.
+See [docs/security-checklist.md](docs/security-checklist.md) for the current checklist.
 
 ## Project Docs
 
-- Product spec: [docs/product-spec.md](/C:/Users/brandon.alloway/OneDrive%20-%20morrisgroup.com.au/Documents/Belinked/docs/product-spec.md)
-- Security checklist: [docs/security-checklist.md](/C:/Users/brandon.alloway/OneDrive%20-%20morrisgroup.com.au/Documents/Belinked/docs/security-checklist.md)
+- Product spec: [docs/product-spec.md](docs/product-spec.md)
+- Security checklist: [docs/security-checklist.md](docs/security-checklist.md)
 
 ## Status
 

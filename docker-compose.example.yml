@@ -1,0 +1,46 @@
+# Copy this file to docker-compose.yml, adjust the environment values, then run:
+# docker compose up --build -d
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Keep the SQLite database inside the persistent Docker volume.
+      DATABASE_URL: "file:/app/data/belinked.db"
+      APP_URL: "http://localhost:3000"
+
+      # Change this before using the app outside local testing.
+      # Use at least 32 random characters.
+      SESSION_SECRET: "replace-this-with-at-least-32-random-characters"
+
+      # Optional defaults used by the seed/setup flow.
+      SETUP_EMAIL: "owner@example.com"
+      SETUP_PASSWORD: "change-this-password"
+      SETUP_DISPLAY_NAME: "Belinked Owner"
+
+      # Local development SMTP. In production, replace these with your SMTP host/port
+      # and configure the username/password inside the admin Settings screen.
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+
+      STORAGE_MODE: "local"
+      UPLOAD_MAX_MB: "5"
+      VIDEO_UPLOAD_MAX_MB: "50"
+    volumes:
+      - belinked-data:/app/data
+      - belinked-uploads:/app/public/uploads
+    depends_on:
+      - mailhog
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+
+volumes:
+  belinked-data:
+  belinked-uploads:
