@@ -1,0 +1,10 @@
+.next
+node_modules
+dist
+coverage
+.env
+*.db
+*.db-journal
+tsconfig.tsbuildinfo
+public/uploads/*
+!public/uploads/.gitkeep

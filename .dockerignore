@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+coverage
+*.db
+*.db-journal
+tsconfig.tsbuildinfo
+public/uploads/*
+Dockerfile
+docker-compose.yml

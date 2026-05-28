@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum BlockType {
+  LINK
+  HEADER
+  TEXT
+  SEPARATOR
+  VIDEO
+  MUSIC
+  PODCAST
+  NEWSLETTER
+  CALENDAR
+  CONTACT
+  EMBED
+  PRODUCT
+  SUBSCRIBER_FORM
+}
+
+enum BlockStatus {
+  ACTIVE
+  HIDDEN
+  ARCHIVED
+}
+
+enum EventType {
+  PROFILE_VIEW
+  LINK_CLICK
+  SHORT_LINK_CLICK
+  SUBSCRIBER
+}
+
+model Owner {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  auditLogs    AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  ownerId   String
+  owner     Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ipHash    String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model Profile {
+  id                  String   @id @default(cuid())
+  slug                String   @unique
+  displayName         String
+  username            String
+  bio                 String
+  badge               String?
+  isPublished         Boolean  @default(true)
+  avatarUrl           String?
+  logoUrl             String?
+  seoTitle            String?
+  seoDescription      String?
+  ogImageUrl          String?
+  cookieNoticeEnabled Boolean  @default(true)
+  priorityRedirectUrl String?
+  priorityRedirectOn  Boolean  @default(false)
+  themeId             String?
+  theme               Theme?   @relation(fields: [themeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Block {
+  id           String      @id @default(cuid())
+  type         BlockType
+  status       BlockStatus @default(ACTIVE)
+  title        String
+  description  String?
+  url          String?
+  imageUrl     String?
+  icon         String?
+  tags         String?
+  internalNote String?
+  featured     Boolean     @default(false)
+  animation    String?
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  startsAt     DateTime?
+  endsAt       DateTime?
+  position     Int         @default(0)
+  metadata     String      @default("{}")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  events       Event[]
+}
+
+model SocialIcon {
+  id        String   @id @default(cuid())
+  label     String
+  url       String
+  icon      String
+  position  Int      @default(0)
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Theme {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  isDefault   Boolean  @default(false)
+  settings    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profiles    Profile[]
+}
+
+model ShortLink {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  destination String
+  description String?
+  isActive    Boolean  @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String
+  name      String?
+  source    String?
+  consent   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  type      EventType
+  profileId String?
+  blockId   String?
+  block     Block?    @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  shortCode String?
+  path      String?
+  targetUrl String?
+  referrer  String?
+  browser   String?
+  os        String?
+  device    String?
+  country   String?
+  ipHash    String?
+  isBot     Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([type, createdAt])
+  @@index([blockId, createdAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  ownerId   String?
+  owner     Owner?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  action    String
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+}

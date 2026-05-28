@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "file:/app/data/belinked.db"
+      APP_URL: "http://localhost:3000"
+      SESSION_SECRET: "change-this-local-dev-secret-to-32-characters"
+      SETUP_EMAIL: "owner@example.com"
+      SETUP_PASSWORD: "change-me-now"
+      SETUP_DISPLAY_NAME: "Belinked Owner"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      STORAGE_MODE: "local"
+    volumes:
+      - belinked-data:/app/data
+      - belinked-uploads:/app/public/uploads
+    depends_on:
+      - mailhog
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "8025:8025"
+volumes:
+  belinked-data:
+  belinked-uploads:
