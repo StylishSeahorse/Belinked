@@ -31,17 +31,32 @@ function safeHttpUrl(value?: string | null) {
   }
 }
 
+const supportedEmbedHosts = [
+  "youtu.be",
+  "youtube.com",
+  "youtube-nocookie.com",
+  "vimeo.com",
+  "player.vimeo.com",
+  "open.spotify.com",
+  "soundcloud.com"
+];
+
+function isSupportedEmbedHost(host: string) {
+  return supportedEmbedHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}
+
 export function resolveEmbedUrl(value?: string | null) {
   const url = safeHttpUrl(value);
   if (!url) return undefined;
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (!isSupportedEmbedHost(host)) return undefined;
 
   if (host === "youtu.be") {
     const id = url.pathname.split("/").filter(Boolean)[0];
     return id ? `https://www.youtube.com/embed/${id}` : undefined;
   }
 
-  if (host.endsWith("youtube.com")) {
+  if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
     if (url.pathname.startsWith("/embed/")) return url.toString();
     if (url.pathname.startsWith("/shorts/")) {
       const id = url.pathname.split("/")[2];
@@ -65,5 +80,5 @@ export function resolveEmbedUrl(value?: string | null) {
     return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url.toString())}`;
   }
 
-  return url.toString();
+  return undefined;
 }

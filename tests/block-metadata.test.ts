@@ -18,4 +18,9 @@ describe("block metadata", () => {
       "https://open.spotify.com/embed/track/7ouMYWpwJ422jRcDASZB7P"
     );
   });
+
+  it("rejects unsupported iframe hosts", () => {
+    expect(resolveEmbedUrl("https://example.com/embed.html")).toBeUndefined();
+    expect(resolveEmbedUrl("javascript:alert(1)")).toBeUndefined();
+  });
 });

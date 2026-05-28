@@ -9,6 +9,7 @@ import { parseBlockMetadata, resolveEmbedUrl } from "@/lib/block-metadata";
 import type { SocialPlacement } from "@/lib/socials";
 import { SocialGlyph } from "@/lib/socials";
 import { parseTheme } from "@/lib/themes";
+import { safeHref } from "@/lib/validation";
 
 function iconFor(type: string) {
   if (type === "VIDEO") return <Play size={18} />;
@@ -230,8 +231,8 @@ function renderInteractiveBlock(block: Block, settings: ReturnType<typeof parseT
               block.type === "NEWSLETTER" ? "Subscribe" : block.type === "CALENDAR" ? "Book now" : "Get in touch"
             )}
           />
-          {metadata.secondaryUrl ? (
-            <a href={metadata.secondaryUrl} className="btn-secondary">
+          {safeHref(metadata.secondaryUrl) ? (
+            <a href={safeHref(metadata.secondaryUrl)} className="btn-secondary">
               {metadata.secondaryLabel || "More"}
             </a>
           ) : null}
@@ -294,7 +295,7 @@ export function PublicProfile({
           aria-label={social.label}
           title={social.label}
           className="grid h-11 w-11 place-items-center rounded-full text-current transition hover:-translate-y-0.5 hover:bg-black/5"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           target="_blank"
         >
           <SocialGlyph social={social} className="h-6 w-6" />

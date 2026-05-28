@@ -1,11 +1,29 @@
 import { z } from "zod";
 
+function hasAllowedProtocol(value: string, protocols: string[]) {
+  try {
+    return protocols.includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 const safeUrl = z
   .string()
   .trim()
   .url()
-  .refine((value) => ["http:", "https:", "mailto:", "tel:"].includes(new URL(value).protocol), {
+  .max(2048)
+  .refine((value) => hasAllowedProtocol(value, ["http:", "https:", "mailto:", "tel:"]), {
     message: "URL must use http, https, mailto, or tel"
+  });
+
+const safeWebUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  .refine((value) => hasAllowedProtocol(value, ["http:", "https:"]), {
+    message: "URL must use http or https"
   });
 
 export const optionalSafeUrl = z
@@ -102,4 +120,13 @@ export const shortLinkSchema = z.object({
 export function assertSafeRedirect(url: string): string {
   const parsed = safeUrl.parse(url);
   return parsed;
+}
+
+export function safeHref(url?: string | null): string | undefined {
+  const parsed = safeUrl.safeParse(url || "");
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function assertSafeWebUrl(url: string): string {
+  return safeWebUrl.parse(url);
 }

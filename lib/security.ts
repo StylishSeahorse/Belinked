@@ -5,9 +5,16 @@ export function hashSecret(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function sessionSecret() {
+  const secret = process.env.SESSION_SECRET || "";
+  if (process.env.NODE_ENV === "production" && secret.length < 32) {
+    throw new Error("SESSION_SECRET must be at least 32 characters in production.");
+  }
+  return secret || "local-dev";
+}
+
 export function hashIp(ip: string | null) {
-  const salt = process.env.SESSION_SECRET || "local-dev";
-  return crypto.createHash("sha256").update(`${salt}:${ip || "unknown"}`).digest("hex");
+  return crypto.createHash("sha256").update(`${sessionSecret()}:${ip || "unknown"}`).digest("hex");
 }
 
 export function randomToken() {
