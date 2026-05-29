@@ -36,11 +36,12 @@ export async function recordEvent(input: {
 }
 
 export async function analyticsSummary(days = 30) {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const safeDays = Math.max(1, Math.min(days, 365));
+  const since = new Date(Date.now() - safeDays * 2 * 24 * 60 * 60 * 1000);
   const events = await prisma.event.findMany({
     where: { createdAt: { gte: since }, isBot: false },
     include: { block: true },
     orderBy: { createdAt: "asc" }
   });
-  return summarizeEvents(events);
+  return summarizeEvents(events, { days: safeDays });
 }

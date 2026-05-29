@@ -33,7 +33,7 @@ export default async function AdminHome() {
       <section className="panel">
         <h2 className="mb-3 text-xl font-black">Top links</h2>
         <div className="grid gap-2">
-          {summary.topLinks.length ? summary.topLinks.map(([title, clicks]) => <p key={title} className="flex justify-between border-b border-black/10 py-2"><span>{title}</span><strong>{clicks}</strong></p>) : <p className="text-sm text-black/60">No clicks recorded yet.</p>}
+          {summary.topLinks.length ? summary.topLinks.map((link) => <p key={link.label} className="flex justify-between border-b border-black/10 py-2"><span>{link.label}</span><strong>{link.count}</strong></p>) : <p className="text-sm text-black/60">No clicks recorded yet.</p>}
         </div>
       </section>
     </div>
