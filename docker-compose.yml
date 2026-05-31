@@ -5,14 +5,16 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: "file:/app/data/belinked.db"
-      APP_URL: "http://localhost:3000"
-      SESSION_SECRET: "change-this-local-dev-secret-to-32-characters"
-      SETUP_EMAIL: "owner@example.com"
-      SETUP_PASSWORD: "change-me-now"
-      SETUP_DISPLAY_NAME: "Belinked Owner"
-      SMTP_HOST: "mailhog"
-      SMTP_PORT: "1025"
-      STORAGE_MODE: "local"
+      APP_URL: "${APP_URL:-http://localhost:3000}"
+      SESSION_SECRET: "${SESSION_SECRET:-change-this-local-dev-secret-to-32-characters}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      SETUP_EMAIL: "${SETUP_EMAIL:-owner@example.com}"
+      SETUP_PASSWORD: "${SETUP_PASSWORD:-change-me-now}"
+      SETUP_DISPLAY_NAME: "${SETUP_DISPLAY_NAME:-Belinked Owner}"
+      BELINKED_AUTO_CREATE_OWNER: "${BELINKED_AUTO_CREATE_OWNER:-false}"
+      SMTP_HOST: "${SMTP_HOST:-mailhog}"
+      SMTP_PORT: "${SMTP_PORT:-1025}"
+      STORAGE_MODE: "${STORAGE_MODE:-local}"
     volumes:
       - belinked-data:/app/data
       - belinked-uploads:/app/public/uploads

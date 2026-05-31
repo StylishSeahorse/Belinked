@@ -79,10 +79,9 @@ At minimum, change:
 
 - `SESSION_SECRET`
 - `SETUP_EMAIL`
-- `SETUP_PASSWORD`
 - `SETUP_DISPLAY_NAME`
 
-Use at least 32 random characters for `SESSION_SECRET`. Keep `DATABASE_URL` as `file:/app/data/belinked.db` inside Docker so the database lives in the `belinked-data` volume.
+Use at least 32 random characters for `SESSION_SECRET`. Docker Compose stores SQLite at `file:/app/data/belinked.db` inside the container so the database lives in the `belinked-data` volume.
 
 4. Start the app.
 
@@ -96,7 +95,7 @@ Then open:
 - Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
 - MailHog: [http://localhost:8025](http://localhost:8025)
 
-On first run, if no owner exists yet, Belinked will send you to `/admin/setup`.
+On first run, if no owner exists yet, Belinked will send you to `/admin/setup`. The setup form uses `SETUP_EMAIL` and `SETUP_DISPLAY_NAME` from `.env` as defaults.
 
 To stop the app without deleting data:
 
@@ -127,16 +126,18 @@ Important variables:
 - `DATABASE_URL`
 - `APP_URL`
 - `SESSION_SECRET`
+- `COOKIE_SECURE`
 - `SETUP_EMAIL`
 - `SETUP_PASSWORD`
 - `SETUP_DISPLAY_NAME`
+- `BELINKED_AUTO_CREATE_OWNER`
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `UPLOAD_MAX_MB`
 - `VIDEO_UPLOAD_MAX_MB`
 
 Note:
-The current app uses the setup screen at `/admin/setup` for first-run owner creation. The `SETUP_*` values are still useful defaults for local environments and container config, but owner creation is performed through the app UI.
+The current app uses the setup screen at `/admin/setup` for first-run owner creation. `SETUP_EMAIL` and `SETUP_DISPLAY_NAME` are used as setup form defaults. `SETUP_PASSWORD` is only used when `BELINKED_AUTO_CREATE_OWNER=true`, which provisions an owner during seeding and sends `/admin` to the login page instead of setup. Keep `COOKIE_SECURE=false` for plain local HTTP; set it to `true` when serving Belinked over HTTPS.
 
 ### SMTP With Docker
 

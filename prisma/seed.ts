@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
+import { ownerSeedFromEnv } from "../lib/setup";
 import { defaultThemes } from "../lib/themes";
 
 async function main() {
@@ -16,13 +17,14 @@ async function main() {
   }
 
   const ownerCount = await prisma.owner.count();
-  if (ownerCount === 0 && process.env.SETUP_EMAIL && process.env.SETUP_PASSWORD) {
-    const passwordHash = await bcrypt.hash(process.env.SETUP_PASSWORD, 12);
+  const ownerSeed = ownerSeedFromEnv();
+  if (ownerCount === 0 && ownerSeed) {
+    const passwordHash = await bcrypt.hash(ownerSeed.password, 12);
     const owner = await prisma.owner.create({
       data: {
-        email: process.env.SETUP_EMAIL,
+        email: ownerSeed.email,
         passwordHash,
-        displayName: process.env.SETUP_DISPLAY_NAME || "Owner"
+        displayName: ownerSeed.displayName
       }
     });
     await prisma.auditLog.create({

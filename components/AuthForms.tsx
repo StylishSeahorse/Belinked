@@ -22,17 +22,22 @@ export function LoginForm() {
   );
 }
 
-export function SetupForm() {
+type SetupFormDefaults = {
+  displayName?: string;
+  email?: string;
+};
+
+export function SetupForm({ defaults = {} }: { defaults?: SetupFormDefaults }) {
   const [, action] = useActionState(setupAction, null);
   return (
     <form action={action} className="panel grid gap-4">
       <label className="field">
         Display name
-        <input className="input" name="displayName" required />
+        <input className="input" name="displayName" defaultValue={defaults.displayName} required />
       </label>
       <label className="field">
         Email
-        <input className="input" name="email" type="email" required />
+        <input className="input" name="email" type="email" defaultValue={defaults.email} required />
       </label>
       <label className="field">
         Password
