@@ -2,6 +2,7 @@ export type ParsedBlockMetadata = {
   buttonLabel?: string;
   caption?: string;
   embedUrl?: string;
+  inlineGroupSize?: number;
   inputPlaceholder?: string;
   price?: string;
   secondaryLabel?: string;

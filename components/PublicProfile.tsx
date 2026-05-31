@@ -133,7 +133,7 @@ function RichCard({
   children?: ReactNode;
 }) {
   return (
-    <article className="col-span-2 grid overflow-hidden rounded-lg border" style={cardStyle(settings)}>
+    <article className="col-span-full grid overflow-hidden rounded-lg border" style={cardStyle(settings)}>
       {isVideoMedia(block.imageUrl) ? (
         <video src={block.imageUrl || ""} className="aspect-[16/9] w-full object-cover" controls playsInline preload="metadata" />
       ) : isImageMedia(block.imageUrl) ? (
@@ -248,7 +248,7 @@ function renderInteractiveBlock(block: Block, settings: ReturnType<typeof parseT
         key={block.id}
         action="/api/track"
         method="post"
-        className="col-span-2 grid gap-3 rounded-lg border border-black/10 bg-white/65 p-4"
+        className="col-span-full grid gap-3 rounded-lg border border-black/10 bg-white/65 p-4"
         style={{ borderRadius: settings.radius, boxShadow: settings.shadow }}
       >
         <input type="hidden" name="subscriberBlockId" value={block.id} />
@@ -434,7 +434,7 @@ export function PublicProfile({
           </section>
         ) : null}
 
-        <div className={settings.layout === "compact" ? "grid grid-cols-2 gap-3" : "grid gap-3"}>
+        <div className="grid gap-3">
           {renderGroupedBlocks(visible, settings)}
         </div>
         {socialPlacement === "bottom" ? socialRow : null}

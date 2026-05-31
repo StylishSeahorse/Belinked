@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BlockType } from "@prisma/client";
 import { createOwner, login, logout, requireOwner } from "@/lib/auth";
+import { parseBlockMetadata } from "@/lib/block-metadata";
 import { addUtm } from "@/lib/blocks";
 import { prisma } from "@/lib/prisma";
 import { normalizeSmtpConfig, testSmtpConnection } from "@/lib/smtp-test";
@@ -120,7 +121,6 @@ export async function saveBlockAction(formData: FormData) {
     metadata: formData.get("metadata") || "{}"
   });
   const normalizedUrl = parsed.url && parsed.type === BlockType.LINK ? addUtm(parsed.url, parsed.utmSource, parsed.utmMedium, parsed.utmCampaign) : parsed.url;
-  const metadata = metadataWithInlineGroupSize(parsed.metadata, formData.get("inlineGroupSize"));
   const data = {
     type: parsed.type,
     status: parsed.status,
@@ -139,7 +139,7 @@ export async function saveBlockAction(formData: FormData) {
     startsAt: maybeDate(parsed.startsAt),
     endsAt: maybeDate(parsed.endsAt),
     position: parsed.position,
-    metadata
+    metadata: parsed.metadata
   };
   if (id) await prisma.block.update({ where: { id }, data });
   else await prisma.block.create({ data });
@@ -284,16 +284,46 @@ function platformSettingsFromForm(formData: FormData, current: Record<string, un
   return value;
 }
 
-function metadataWithInlineGroupSize(metadata: string, value: FormDataEntryValue | null) {
-  const inlineGroupSize = Math.min(3, Math.max(1, Number(value || 1)));
-  try {
-    const parsed = JSON.parse(metadata || "{}") as Record<string, unknown>;
-    if (inlineGroupSize > 1) parsed.inlineGroupSize = inlineGroupSize;
-    else delete parsed.inlineGroupSize;
-    return JSON.stringify(parsed);
-  } catch {
-    return inlineGroupSize > 1 ? JSON.stringify({ inlineGroupSize }) : "{}";
+function metadataForLayout(metadata: string, inlineGroupSize: number) {
+  const parsed = parseBlockMetadata(metadata) as Record<string, unknown>;
+  if (inlineGroupSize > 1) parsed.inlineGroupSize = inlineGroupSize;
+  else delete parsed.inlineGroupSize;
+  return JSON.stringify(parsed);
+}
+
+export async function saveBlockLayoutAction(rows: string[][]) {
+  await requireOwner();
+  const normalizedRows = rows
+    .map((row) => [...new Set(row.filter(Boolean))].slice(0, 3))
+    .filter((row) => row.length > 0);
+  const ids = [...new Set(normalizedRows.flat())];
+  if (!ids.length) return;
+
+  const blocks = await prisma.block.findMany({ where: { id: { in: ids } } });
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+  const updates = [];
+  let position = 1;
+
+  for (const row of normalizedRows) {
+    const validRow = row.map((id) => byId.get(id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
+    const canGroup = validRow.length > 1 && validRow.every((block) => block.type === BlockType.LINK && !block.featured);
+    for (const [index, block] of validRow.entries()) {
+      updates.push(
+        prisma.block.update({
+          where: { id: block.id },
+          data: {
+            position,
+            metadata: metadataForLayout(block.metadata, canGroup && index === 0 ? validRow.length : 1)
+          }
+        })
+      );
+      position += 1;
+    }
   }
+
+  await prisma.$transaction(updates);
+  await prisma.auditLog.create({ data: { action: "blocks.layout_updated", metadata: JSON.stringify({ count: ids.length }) } });
+  revalidatePath("/");
 }
 
 export async function testSmtpSettingsAction(_: SmtpTestActionState, formData: FormData): Promise<SmtpTestActionState> {

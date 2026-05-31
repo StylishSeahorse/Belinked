@@ -41,16 +41,6 @@ const metadataPresets: Record<string, string> = {
   empty: "{}"
 };
 
-function inlineGroupSizeFromMetadata(metadata: string) {
-  try {
-    const parsed = JSON.parse(metadata || "{}") as { inlineGroupSize?: unknown };
-    const size = Number(parsed.inlineGroupSize || 1);
-    return size === 2 || size === 3 ? String(size) : "1";
-  } catch {
-    return "1";
-  }
-}
-
 export function BlockTypeFields({
   defaultAnimation = "",
   defaultFeatured = false,
@@ -67,7 +57,6 @@ export function BlockTypeFields({
 }: BlockTypeFieldsProps) {
   const [type, setType] = useState<BlockType>(defaultType);
   const [metadata, setMetadata] = useState(defaultMetadata);
-  const inlineGroupSize = inlineGroupSizeFromMetadata(defaultMetadata);
 
   return (
     <>
@@ -92,15 +81,6 @@ export function BlockTypeFields({
             help: "Standard links use the thumbnail as a compact row image. Featured links use it as the hero media."
           })}
           <DisplayStylePicker featured={defaultFeatured} />
-          <label className="field">
-            Link grouping
-            <select className="input" name="inlineGroupSize" defaultValue={inlineGroupSize}>
-              <option value="1">Single link</option>
-              <option value="2">Start group of 2</option>
-              <option value="3">Start group of 3</option>
-            </select>
-            <span className="text-xs text-black/55">Groups this link with the next adjacent standard links.</span>
-          </label>
           <label className="field">
             Animation
             <select className="input" name="animation" defaultValue={defaultAnimation}>
