@@ -8,7 +8,17 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   await requireOwner();
-  const profile = await prisma.profile.findFirstOrThrow();
+  const [profile, setting] = await Promise.all([
+    prisma.profile.findFirstOrThrow(),
+    prisma.appSetting.findUnique({ where: { key: "platform" } })
+  ]);
+  let platform: Record<string, unknown> = {};
+  try {
+    platform = JSON.parse(setting?.value || "{}");
+  } catch {
+    platform = {};
+  }
+  const featuredInlineCount = Number(platform.featuredInlineCount || 0);
   return (
     <form action={saveProfileAction} encType="multipart/form-data" className="grid max-w-3xl gap-5">
       <h1 className="text-3xl font-black">Profile</h1>
@@ -38,6 +48,15 @@ export default async function ProfilePage() {
           {profile.ogImageUrl ? <span className="text-xs text-black/55">Current: {profile.ogImageUrl}</span> : null}
         </div>
         <label className="field md:col-span-2">SEO description<textarea className="input" name="seoDescription" rows={2} defaultValue={profile.seoDescription || ""} /></label>
+        <label className="field">
+          First links in row
+          <select className="input" name="featuredInlineCount" defaultValue={featuredInlineCount}>
+            <option value="0">Off</option>
+            <option value="1">1 link</option>
+            <option value="2">2 links</option>
+            <option value="3">3 links</option>
+          </select>
+        </label>
         <label className="field md:col-span-2">Priority redirect URL<input className="input" name="priorityRedirectUrl" defaultValue={profile.priorityRedirectUrl || ""} /></label>
         <label className="flex items-center gap-2 text-sm font-semibold"><input className="w-auto" type="checkbox" name="isPublished" defaultChecked={profile.isPublished} /> Published</label>
         <label className="flex items-center gap-2 text-sm font-semibold"><input className="w-auto" type="checkbox" name="cookieNoticeEnabled" defaultChecked={profile.cookieNoticeEnabled} /> Cookie disclosure</label>

@@ -72,9 +72,11 @@ function BlockAction({
 
 function GenericLinkBlock({
   block,
+  compact = false,
   settings
 }: {
   block: Block;
+  compact?: boolean;
   settings: ReturnType<typeof parseTheme>;
 }) {
   const href = hrefForBlock(block) || "#";
@@ -105,6 +107,7 @@ function GenericLinkBlock({
       href={href}
       className={[
         "flex min-h-14 items-center gap-3 rounded-lg border p-3 text-left text-sm font-bold transition hover:-translate-y-0.5",
+        compact ? "h-full flex-col justify-center text-center" : "",
         block.animation === "pulse" ? "animate-pulse" : ""
       ].join(" ")}
       style={cardStyle(settings)}
@@ -116,7 +119,7 @@ function GenericLinkBlock({
       ) : (
         iconFor(block.type)
       )}
-      <span className="flex-1">{block.title}</span>
+      <span className={compact ? "" : "flex-1"}>{block.title}</span>
     </a>
   );
 }
@@ -267,9 +270,20 @@ function renderInteractiveBlock(block: Block, settings: ReturnType<typeof parseT
   return <GenericLinkBlock key={block.id} block={block} settings={settings} />;
 }
 
+function isInlineCandidate(block: Block) {
+  return block.type === "LINK" && !block.featured;
+}
+
+function inlineGridClass(count: number) {
+  if (count <= 1) return "grid gap-3";
+  if (count === 2) return "grid grid-cols-2 gap-3";
+  return "grid grid-cols-2 gap-3 sm:grid-cols-3";
+}
+
 export function PublicProfile({
   profile,
   blocks,
+  featuredInlineCount,
   metaIntegration,
   socials,
   socialPlacement,
@@ -277,6 +291,7 @@ export function PublicProfile({
 }: {
   profile: Profile;
   blocks: Block[];
+  featuredInlineCount?: number;
   metaIntegration?: MetaIntegrationData | null;
   socials: SocialIcon[];
   socialPlacement: SocialPlacement;
@@ -289,6 +304,13 @@ export function PublicProfile({
   }, [profile.id]);
 
   const visible = blocks.filter((block) => isBlockVisible(block));
+  const inlineCount = Math.min(3, Math.max(0, Number(featuredInlineCount || 0)));
+  const inlineBlocks: Block[] = [];
+  const remainingBlocks: Block[] = [];
+  for (const block of visible) {
+    if (inlineBlocks.length < inlineCount && isInlineCandidate(block)) inlineBlocks.push(block);
+    else remainingBlocks.push(block);
+  }
   const socialRow = socials.length ? (
     <div className="flex flex-wrap items-center justify-center gap-4">
       {socials.map((social) => (
@@ -382,8 +404,16 @@ export function PublicProfile({
           </section>
         ) : null}
 
+        {inlineBlocks.length ? (
+          <div className={inlineGridClass(inlineBlocks.length)}>
+            {inlineBlocks.map((block) => (
+              <GenericLinkBlock key={block.id} block={block} compact settings={settings} />
+            ))}
+          </div>
+        ) : null}
+
         <div className={settings.layout === "compact" ? "grid grid-cols-2 gap-3" : "grid gap-3"}>
-          {visible.map((block) => {
+          {remainingBlocks.map((block) => {
             if (block.type === "HEADER") return <h2 key={block.id} className="mt-3 text-lg font-black">{block.title}</h2>;
             if (block.type === "TEXT") return <p key={block.id} className="text-sm leading-6" style={{ color: settings.muted }}>{block.description || block.title}</p>;
             if (block.type === "SEPARATOR") return <hr key={block.id} className="border-black/15" />;

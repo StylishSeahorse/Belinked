@@ -53,6 +53,7 @@ export async function renderPublicProfile() {
     <PublicProfile
       profile={profile}
       blocks={blocks}
+      featuredInlineCount={Number(platform.featuredInlineCount || 0)}
       socials={socials}
       socialPlacement={parseSocialPlacement(platform.socialPlacement)}
       theme={profile.theme}

@@ -87,6 +87,11 @@ export async function saveProfileAction(formData: FormData) {
   });
   await prisma.profile.update({ where: { id: profile.id }, data: parsed });
   await prisma.auditLog.create({ data: { action: "profile.updated" } });
+
+  const currentSettings = await readPlatformSettings();
+  const featuredInlineCount = Math.min(3, Math.max(0, Number(formData.get("featuredInlineCount") || 0)));
+  await writePlatformSettings({ ...currentSettings, featuredInlineCount });
+
   revalidatePath("/");
   redirect("/admin/profile");
 }
