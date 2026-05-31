@@ -87,11 +87,6 @@ export async function saveProfileAction(formData: FormData) {
   });
   await prisma.profile.update({ where: { id: profile.id }, data: parsed });
   await prisma.auditLog.create({ data: { action: "profile.updated" } });
-
-  const currentSettings = await readPlatformSettings();
-  const featuredInlineCount = Math.min(3, Math.max(0, Number(formData.get("featuredInlineCount") || 0)));
-  await writePlatformSettings({ ...currentSettings, featuredInlineCount });
-
   revalidatePath("/");
   redirect("/admin/profile");
 }
@@ -125,6 +120,7 @@ export async function saveBlockAction(formData: FormData) {
     metadata: formData.get("metadata") || "{}"
   });
   const normalizedUrl = parsed.url && parsed.type === BlockType.LINK ? addUtm(parsed.url, parsed.utmSource, parsed.utmMedium, parsed.utmCampaign) : parsed.url;
+  const metadata = metadataWithInlineGroupSize(parsed.metadata, formData.get("inlineGroupSize"));
   const data = {
     type: parsed.type,
     status: parsed.status,
@@ -143,7 +139,7 @@ export async function saveBlockAction(formData: FormData) {
     startsAt: maybeDate(parsed.startsAt),
     endsAt: maybeDate(parsed.endsAt),
     position: parsed.position,
-    metadata: parsed.metadata
+    metadata
   };
   if (id) await prisma.block.update({ where: { id }, data });
   else await prisma.block.create({ data });
@@ -286,6 +282,18 @@ function platformSettingsFromForm(formData: FormData, current: Record<string, un
     }
   };
   return value;
+}
+
+function metadataWithInlineGroupSize(metadata: string, value: FormDataEntryValue | null) {
+  const inlineGroupSize = Math.min(3, Math.max(1, Number(value || 1)));
+  try {
+    const parsed = JSON.parse(metadata || "{}") as Record<string, unknown>;
+    if (inlineGroupSize > 1) parsed.inlineGroupSize = inlineGroupSize;
+    else delete parsed.inlineGroupSize;
+    return JSON.stringify(parsed);
+  } catch {
+    return inlineGroupSize > 1 ? JSON.stringify({ inlineGroupSize }) : "{}";
+  }
 }
 
 export async function testSmtpSettingsAction(_: SmtpTestActionState, formData: FormData): Promise<SmtpTestActionState> {

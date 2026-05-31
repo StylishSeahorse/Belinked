@@ -72,11 +72,9 @@ function BlockAction({
 
 function GenericLinkBlock({
   block,
-  compact = false,
   settings
 }: {
   block: Block;
-  compact?: boolean;
   settings: ReturnType<typeof parseTheme>;
 }) {
   const href = hrefForBlock(block) || "#";
@@ -107,7 +105,6 @@ function GenericLinkBlock({
       href={href}
       className={[
         "flex min-h-14 items-center gap-3 rounded-lg border p-3 text-left text-sm font-bold transition hover:-translate-y-0.5",
-        compact ? "h-full flex-col justify-center text-center" : "",
         block.animation === "pulse" ? "animate-pulse" : ""
       ].join(" ")}
       style={cardStyle(settings)}
@@ -119,7 +116,7 @@ function GenericLinkBlock({
       ) : (
         iconFor(block.type)
       )}
-      <span className={compact ? "" : "flex-1"}>{block.title}</span>
+      <span className="flex-1">{block.title}</span>
     </a>
   );
 }
@@ -274,16 +271,57 @@ function isInlineCandidate(block: Block) {
   return block.type === "LINK" && !block.featured;
 }
 
+function inlineGroupSize(block: Block) {
+  const metadata = parseBlockMetadata(block.metadata) as { inlineGroupSize?: unknown };
+  const size = Number(metadata.inlineGroupSize || 1);
+  return size === 2 || size === 3 ? size : 1;
+}
+
 function inlineGridClass(count: number) {
-  if (count <= 1) return "grid gap-3";
-  if (count === 2) return "grid grid-cols-2 gap-3";
-  return "grid grid-cols-2 gap-3 sm:grid-cols-3";
+  if (count <= 1) return "col-span-full grid gap-3";
+  if (count === 2) return "col-span-full grid grid-cols-2 gap-3";
+  return "col-span-full grid grid-cols-2 gap-3 sm:grid-cols-3";
+}
+
+function renderBlock(block: Block, settings: ReturnType<typeof parseTheme>) {
+  if (block.type === "HEADER") return <h2 key={block.id} className="mt-3 text-lg font-black">{block.title}</h2>;
+  if (block.type === "TEXT") return <p key={block.id} className="text-sm leading-6" style={{ color: settings.muted }}>{block.description || block.title}</p>;
+  if (block.type === "SEPARATOR") return <hr key={block.id} className="border-black/15" />;
+  return renderInteractiveBlock(block, settings);
+}
+
+function renderGroupedBlocks(blocks: Block[], settings: ReturnType<typeof parseTheme>) {
+  const rendered = [];
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const requestedSize = isInlineCandidate(block) ? inlineGroupSize(block) : 1;
+    if (requestedSize > 1) {
+      const group = [block];
+      for (let offset = 1; offset < requestedSize; offset += 1) {
+        const next = blocks[index + offset];
+        if (!next || !isInlineCandidate(next)) break;
+        group.push(next);
+      }
+      if (group.length > 1) {
+        rendered.push(
+          <div key={group.map((item) => item.id).join("-")} className={inlineGridClass(group.length)}>
+            {group.map((item) => (
+              <GenericLinkBlock key={item.id} block={item} settings={settings} />
+            ))}
+          </div>
+        );
+        index += group.length - 1;
+        continue;
+      }
+    }
+    rendered.push(renderBlock(block, settings));
+  }
+  return rendered;
 }
 
 export function PublicProfile({
   profile,
   blocks,
-  featuredInlineCount,
   metaIntegration,
   socials,
   socialPlacement,
@@ -291,7 +329,6 @@ export function PublicProfile({
 }: {
   profile: Profile;
   blocks: Block[];
-  featuredInlineCount?: number;
   metaIntegration?: MetaIntegrationData | null;
   socials: SocialIcon[];
   socialPlacement: SocialPlacement;
@@ -304,13 +341,6 @@ export function PublicProfile({
   }, [profile.id]);
 
   const visible = blocks.filter((block) => isBlockVisible(block));
-  const inlineCount = Math.min(3, Math.max(0, Number(featuredInlineCount || 0)));
-  const inlineBlocks: Block[] = [];
-  const remainingBlocks: Block[] = [];
-  for (const block of visible) {
-    if (inlineBlocks.length < inlineCount && isInlineCandidate(block)) inlineBlocks.push(block);
-    else remainingBlocks.push(block);
-  }
   const socialRow = socials.length ? (
     <div className="flex flex-wrap items-center justify-center gap-4">
       {socials.map((social) => (
@@ -404,21 +434,8 @@ export function PublicProfile({
           </section>
         ) : null}
 
-        {inlineBlocks.length ? (
-          <div className={inlineGridClass(inlineBlocks.length)}>
-            {inlineBlocks.map((block) => (
-              <GenericLinkBlock key={block.id} block={block} compact settings={settings} />
-            ))}
-          </div>
-        ) : null}
-
         <div className={settings.layout === "compact" ? "grid grid-cols-2 gap-3" : "grid gap-3"}>
-          {remainingBlocks.map((block) => {
-            if (block.type === "HEADER") return <h2 key={block.id} className="mt-3 text-lg font-black">{block.title}</h2>;
-            if (block.type === "TEXT") return <p key={block.id} className="text-sm leading-6" style={{ color: settings.muted }}>{block.description || block.title}</p>;
-            if (block.type === "SEPARATOR") return <hr key={block.id} className="border-black/15" />;
-            return renderInteractiveBlock(block, settings);
-          })}
+          {renderGroupedBlocks(visible, settings)}
         </div>
         {socialPlacement === "bottom" ? socialRow : null}
         {profile.cookieNoticeEnabled ? <p className="text-center text-xs opacity-70">This page uses privacy-conscious first-party analytics.</p> : null}
