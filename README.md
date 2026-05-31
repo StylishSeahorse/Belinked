@@ -19,6 +19,7 @@ This project is intentionally original in branding, UI, copy, and implementation
 - Short links at `/s/{code}`
 - QR code download for the public page
 - SMTP settings and connection testing for local or custom mail delivery
+- Optional Meta Graph API integration for Instagram and Facebook follower counts
 - SQLite database with Prisma
 
 ## Stack
@@ -135,6 +136,12 @@ Important variables:
 - `SMTP_PORT`
 - `UPLOAD_MAX_MB`
 - `VIDEO_UPLOAD_MAX_MB`
+- `META_INTEGRATION_ENABLED`
+- `META_GRAPH_VERSION`
+- `META_INSTAGRAM_USER_ID`
+- `META_INSTAGRAM_ACCESS_TOKEN`
+- `META_FACEBOOK_PAGE_ID`
+- `META_FACEBOOK_ACCESS_TOKEN`
 
 Note:
 The current app uses the setup screen at `/admin/setup` for first-run owner creation. `SETUP_EMAIL` and `SETUP_DISPLAY_NAME` are used as setup form defaults. `SETUP_PASSWORD` is only used when `BELINKED_AUTO_CREATE_OWNER=true`, which provisions an owner during seeding and sends `/admin` to the login page instead of setup. Keep `COOKIE_SECURE=false` for plain local HTTP; set it to `true` when serving Belinked over HTTPS.
@@ -150,6 +157,23 @@ The example Compose file includes MailHog:
 In the admin dashboard, go to `/admin/settings`, set the email provider to `smtp`, use `mailhog` and `1025`, then click `Test SMTP connection`.
 
 For a real SMTP provider, replace the host and port, then enter the username, password, from name, and from email in the Settings screen. Belinked stores those settings locally in SQLite.
+
+### Instagram and Facebook Stats
+
+Belinked can show live Instagram and Facebook counts on the public profile when Meta Graph API credentials are configured. You can enter these in `/admin/settings` or provide them as environment variables.
+
+Required for Instagram:
+
+- Instagram Business or Creator account
+- Instagram Graph API user ID
+- Access token with permission to read the Instagram account
+
+Required for Facebook:
+
+- Facebook Page ID
+- Page access token with permission to read Page metadata
+
+Set `META_INTEGRATION_ENABLED=true` to enable display. Tokens stay server-side; the public page only receives follower counts and latest-post display data.
 
 ## Local Development
 

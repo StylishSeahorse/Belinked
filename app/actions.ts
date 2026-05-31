@@ -252,7 +252,10 @@ export async function saveSettingsAction(formData: FormData) {
 
 function platformSettingsFromForm(formData: FormData, current: Record<string, unknown>) {
   const currentSmtp = current.smtp as { password?: string } | undefined;
+  const currentMeta = current.meta as { facebookAccessToken?: string; instagramAccessToken?: string } | undefined;
   const smtpPassword = String(formData.get("smtpPassword") || "");
+  const instagramAccessToken = String(formData.get("metaInstagramAccessToken") || "");
+  const facebookAccessToken = String(formData.get("metaFacebookAccessToken") || "");
   const value = {
     name: formData.get("name"),
     footerText: formData.get("footerText"),
@@ -267,6 +270,14 @@ function platformSettingsFromForm(formData: FormData, current: Record<string, un
       password: smtpPassword || currentSmtp?.password || "",
       fromName: formData.get("smtpFromName"),
       fromEmail: formData.get("smtpFromEmail")
+    },
+    meta: {
+      enabled: bool(formData.get("metaEnabled")),
+      graphVersion: formData.get("metaGraphVersion") || "v23.0",
+      instagramUserId: formData.get("metaInstagramUserId"),
+      instagramAccessToken: instagramAccessToken || currentMeta?.instagramAccessToken || "",
+      facebookPageId: formData.get("metaFacebookPageId"),
+      facebookAccessToken: facebookAccessToken || currentMeta?.facebookAccessToken || ""
     }
   };
   return value;

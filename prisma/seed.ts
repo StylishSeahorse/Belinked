@@ -56,7 +56,15 @@ async function main() {
         footerText: "Powered by a local-first link hub",
         supportUrl: "",
         storageMode: process.env.STORAGE_MODE || "local",
-        emailProvider: process.env.SMTP_HOST ? "smtp" : "disabled"
+        emailProvider: process.env.SMTP_HOST ? "smtp" : "disabled",
+        meta: {
+          enabled: process.env.META_INTEGRATION_ENABLED === "true",
+          graphVersion: process.env.META_GRAPH_VERSION || "v23.0",
+          instagramUserId: process.env.META_INSTAGRAM_USER_ID || "",
+          instagramAccessToken: process.env.META_INSTAGRAM_ACCESS_TOKEN || "",
+          facebookPageId: process.env.META_FACEBOOK_PAGE_ID || "",
+          facebookAccessToken: process.env.META_FACEBOOK_ACCESS_TOKEN || ""
+        }
       })
     }
   });

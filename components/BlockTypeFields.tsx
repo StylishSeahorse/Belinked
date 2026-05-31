@@ -32,6 +32,15 @@ function mediaField(copy: { currentMedia?: string; label: string; help: string }
   );
 }
 
+const metadataPresets: Record<string, string> = {
+  action: '{"buttonLabel":"Open"}',
+  embed: '{"embedUrl":"https://www.youtube.com/watch?v=...","caption":"Featured video"}',
+  secondary: '{"buttonLabel":"Open","secondaryUrl":"https://example.com","secondaryLabel":"More"}',
+  product: '{"price":"$29","buttonLabel":"Shop now"}',
+  subscriber: '{"inputPlaceholder":"Your email","submitLabel":"Join"}',
+  empty: "{}"
+};
+
 export function BlockTypeFields({
   defaultAnimation = "",
   defaultFeatured = false,
@@ -47,6 +56,7 @@ export function BlockTypeFields({
   defaultUtmSource = ""
 }: BlockTypeFieldsProps) {
   const [type, setType] = useState<BlockType>(defaultType);
+  const [metadata, setMetadata] = useState(defaultMetadata);
 
   return (
     <>
@@ -238,8 +248,37 @@ export function BlockTypeFields({
 
       <label className="field md:col-span-2">
         Metadata JSON
-        <textarea className="input font-mono text-xs" name="metadata" rows={3} defaultValue={defaultMetadata} placeholder={blockMetadataExamples[type]} />
-        <span className="text-xs text-black/55">Optional extras for this type. Example: {blockMetadataExamples[type]}</span>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(blockMetadataExamples[type])}>
+            Type example
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.action)}>
+            Button label
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.embed)}>
+            Embed
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.secondary)}>
+            Secondary CTA
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.product)}>
+            Product
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.subscriber)}>
+            Subscriber
+          </button>
+          <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(metadataPresets.empty)}>
+            Empty
+          </button>
+        </div>
+        <textarea
+          className="input font-mono text-xs"
+          name="metadata"
+          rows={4}
+          value={metadata}
+          onChange={(event) => setMetadata(event.target.value)}
+          placeholder={blockMetadataExamples[type]}
+        />
       </label>
 
       <label className="field md:col-span-2">

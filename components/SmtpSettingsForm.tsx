@@ -17,6 +17,7 @@ function text(value: unknown, fallback = "") {
 
 export function SmtpSettingsForm({ platform, smtp }: SmtpSettingsFormProps) {
   const [testState, testAction, isTesting] = useActionState(testSmtpSettingsAction, initialState);
+  const meta = (platform.meta || {}) as Record<string, unknown>;
 
   return (
     <form action={saveSettingsAction} className="panel grid gap-4 md:grid-cols-2">
@@ -69,6 +70,47 @@ export function SmtpSettingsForm({ platform, smtp }: SmtpSettingsFormProps) {
       <label className="flex items-center gap-2 text-sm font-semibold text-white/80">
         <input className="w-auto" type="checkbox" name="smtpSecure" defaultChecked={Boolean(smtp.secure)} /> Use TLS/SSL
       </label>
+      <div className="grid gap-4 border-t border-white/10 pt-4 md:col-span-2 md:grid-cols-2">
+        <h2 className="text-xl font-black md:col-span-2">Meta integrations</h2>
+        <label className="flex items-center gap-2 text-sm font-semibold text-white/80 md:col-span-2">
+          <input className="w-auto" type="checkbox" name="metaEnabled" defaultChecked={Boolean(meta.enabled)} /> Show Instagram and Facebook stats
+        </label>
+        <label className="field">
+          Graph API version
+          <input className="input" name="metaGraphVersion" defaultValue={text(meta.graphVersion, "v23.0")} placeholder="v23.0" />
+        </label>
+        <label className="field">
+          Instagram user ID
+          <input className="input" name="metaInstagramUserId" defaultValue={text(meta.instagramUserId)} placeholder="17841400000000000" />
+        </label>
+        <label className="field">
+          Instagram access token
+          <input
+            className="input"
+            name="metaInstagramAccessToken"
+            type="password"
+            placeholder={meta.instagramAccessToken ? "Saved; leave blank to keep" : "Page or IG Graph token"}
+            autoComplete="off"
+          />
+        </label>
+        <label className="field">
+          Facebook page ID
+          <input className="input" name="metaFacebookPageId" defaultValue={text(meta.facebookPageId)} placeholder="1234567890" />
+        </label>
+        <label className="field">
+          Facebook page access token
+          <input
+            className="input"
+            name="metaFacebookAccessToken"
+            type="password"
+            placeholder={meta.facebookAccessToken ? "Saved; leave blank to keep" : "Page access token"}
+            autoComplete="off"
+          />
+        </label>
+        <p className="text-sm text-white/55 md:col-span-2">
+          Instagram follower counts require an Instagram Business or Creator account and Graph API access. Facebook follower counts require Page access.
+        </p>
+      </div>
       {testState ? (
         <div className={`rounded-md border p-3 text-sm font-semibold md:col-span-2 ${testState.ok ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-red-400/30 bg-red-400/10 text-red-100"}`}>
           {testState.message}

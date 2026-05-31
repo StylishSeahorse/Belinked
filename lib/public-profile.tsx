@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PublicProfile } from "@/components/PublicProfile";
+import { fetchMetaIntegrationData } from "@/lib/meta-integration";
 import { prisma } from "@/lib/prisma";
 import { parseSocialPlacement } from "@/lib/socials";
 import { assertSafeRedirect } from "@/lib/validation";
@@ -11,6 +12,12 @@ export async function publicProfileMetadata(): Promise<Metadata> {
   return {
     title: profile.seoTitle || profile.displayName,
     description: profile.seoDescription || profile.bio,
+    icons: profile.logoUrl
+      ? {
+          icon: profile.logoUrl,
+          apple: profile.logoUrl
+        }
+      : undefined,
     openGraph: {
       title: profile.seoTitle || profile.displayName,
       description: profile.seoDescription || profile.bio,
@@ -41,5 +48,15 @@ export async function renderPublicProfile() {
   } catch {
     platform = {};
   }
-  return <PublicProfile profile={profile} blocks={blocks} socials={socials} socialPlacement={parseSocialPlacement(platform.socialPlacement)} theme={profile.theme} />;
+  const metaIntegration = await fetchMetaIntegrationData(platform);
+  return (
+    <PublicProfile
+      profile={profile}
+      blocks={blocks}
+      socials={socials}
+      socialPlacement={parseSocialPlacement(platform.socialPlacement)}
+      theme={profile.theme}
+      metaIntegration={metaIntegration}
+    />
+  );
 }

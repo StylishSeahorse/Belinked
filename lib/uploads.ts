@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { nanoid } from "nanoid";
+import { safeUploadFolder, UPLOADS_ROOT } from "./upload-paths";
 
 const allowedImageTypes = new Map([
   ["image/jpeg", "jpg"],
@@ -30,8 +31,8 @@ async function saveUploadedFile(file: FormDataEntryValue | null, folder: string,
     throw new Error(`Upload content does not match the declared ${label}.`);
   }
 
-  const safeFolder = folder.replace(/[^a-z0-9-_]/gi, "").toLowerCase() || "profile";
-  const uploadDir = path.join(process.cwd(), "public", "uploads", safeFolder);
+  const safeFolder = safeUploadFolder(folder);
+  const uploadDir = path.join(UPLOADS_ROOT, safeFolder);
   await mkdir(uploadDir, { recursive: true });
 
   const filename = `${Date.now()}-${nanoid(10)}.${extension}`;

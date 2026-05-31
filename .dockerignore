@@ -2,6 +2,7 @@ node_modules
 .next
 .git
 coverage
+.env
 *.db
 *.db-journal
 tsconfig.tsbuildinfo

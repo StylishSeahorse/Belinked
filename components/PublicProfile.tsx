@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { isBlockVisible } from "@/lib/blocks";
 import { parseBlockMetadata, resolveEmbedUrl } from "@/lib/block-metadata";
+import type { MetaIntegrationData } from "@/lib/meta-integration";
 import type { SocialPlacement } from "@/lib/socials";
 import { SocialGlyph } from "@/lib/socials";
 import { parseTheme } from "@/lib/themes";
@@ -269,12 +270,14 @@ function renderInteractiveBlock(block: Block, settings: ReturnType<typeof parseT
 export function PublicProfile({
   profile,
   blocks,
+  metaIntegration,
   socials,
   socialPlacement,
   theme
 }: {
   profile: Profile;
   blocks: Block[];
+  metaIntegration?: MetaIntegrationData | null;
   socials: SocialIcon[];
   socialPlacement: SocialPlacement;
   theme: Theme | null;
@@ -343,6 +346,41 @@ export function PublicProfile({
         </header>
 
         {socialPlacement === "top" ? socialRow : null}
+
+        {metaIntegration ? (
+          <section className="grid gap-3 rounded-lg border border-black/10 bg-white/65 p-4" style={{ borderRadius: settings.radius, boxShadow: settings.shadow }}>
+            <div className="grid grid-cols-2 gap-3 text-center">
+              {metaIntegration.instagram ? (
+                <a href={`https://instagram.com/${metaIntegration.instagram.username}`} target="_blank" rel="noopener noreferrer" className="rounded-md border border-black/10 p-3">
+                  <span className="block text-xs uppercase tracking-wide opacity-65">Instagram</span>
+                  <strong className="block text-xl">{metaIntegration.instagram.followers?.toLocaleString() || "-"}</strong>
+                  <span className="text-xs opacity-70">@{metaIntegration.instagram.username}</span>
+                </a>
+              ) : null}
+              {metaIntegration.facebook ? (
+                <a href={metaIntegration.facebook.url || "#"} target="_blank" rel="noopener noreferrer" className="rounded-md border border-black/10 p-3">
+                  <span className="block text-xs uppercase tracking-wide opacity-65">Facebook</span>
+                  <strong className="block text-xl">{metaIntegration.facebook.followers?.toLocaleString() || "-"}</strong>
+                  <span className="text-xs opacity-70">{metaIntegration.facebook.name}</span>
+                </a>
+              ) : null}
+            </div>
+            {metaIntegration.instagram?.latestPost ? (
+              <a href={metaIntegration.instagram.latestPost.permalink || "#"} target="_blank" rel="noopener noreferrer" className="grid overflow-hidden rounded-md border border-black/10">
+                {metaIntegration.instagram.latestPost.mediaUrl || metaIntegration.instagram.latestPost.thumbnailUrl ? (
+                  <img
+                    src={metaIntegration.instagram.latestPost.thumbnailUrl || metaIntegration.instagram.latestPost.mediaUrl}
+                    alt=""
+                    className="aspect-square w-full object-cover"
+                  />
+                ) : null}
+                {metaIntegration.instagram.latestPost.caption ? (
+                  <span className="line-clamp-3 p-3 text-sm opacity-80">{metaIntegration.instagram.latestPost.caption}</span>
+                ) : null}
+              </a>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className={settings.layout === "compact" ? "grid grid-cols-2 gap-3" : "grid gap-3"}>
           {visible.map((block) => {

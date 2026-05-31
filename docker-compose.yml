@@ -15,6 +15,12 @@ services:
       SMTP_HOST: "${SMTP_HOST:-mailhog}"
       SMTP_PORT: "${SMTP_PORT:-1025}"
       STORAGE_MODE: "${STORAGE_MODE:-local}"
+      META_INTEGRATION_ENABLED: "${META_INTEGRATION_ENABLED:-false}"
+      META_GRAPH_VERSION: "${META_GRAPH_VERSION:-v23.0}"
+      META_INSTAGRAM_USER_ID: "${META_INSTAGRAM_USER_ID:-}"
+      META_INSTAGRAM_ACCESS_TOKEN: "${META_INSTAGRAM_ACCESS_TOKEN:-}"
+      META_FACEBOOK_PAGE_ID: "${META_FACEBOOK_PAGE_ID:-}"
+      META_FACEBOOK_ACCESS_TOKEN: "${META_FACEBOOK_ACCESS_TOKEN:-}"
     volumes:
       - belinked-data:/app/data
       - belinked-uploads:/app/public/uploads
