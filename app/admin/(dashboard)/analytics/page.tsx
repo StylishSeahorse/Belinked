@@ -1,6 +1,5 @@
 import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bot, Download, Eye, MousePointerClick, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { analyticsSummary } from "@/lib/analytics";
 import { requireOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -107,7 +106,11 @@ function Timeline({ points, max }: { points: Array<{ date: string; label: string
           <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-300" />Subscribers</span>
         </div>
       </div>
-      <div className="flex h-56 items-end gap-2 overflow-x-auto pb-2">
+      <div
+        className="flex h-56 items-end gap-2 overflow-x-auto pb-2"
+        role="img"
+        aria-label={`Daily activity chart: ${points.reduce((sum, point) => sum + point.views, 0)} views and ${points.reduce((sum, point) => sum + point.clicks, 0)} clicks in total.`}
+      >
         {points.map((point) => {
           const viewsHeight = Math.max(3, (point.views / max) * 100);
           const clicksHeight = Math.max(3, (point.clicks / max) * 100);
@@ -134,7 +137,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const days = safeDays(params.days);
   const [summary, events, botCount] = await Promise.all([
     analyticsSummary(days),
-    prisma.event.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { block: true } }),
+    prisma.event.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { block: { select: { title: true } } } }),
     prisma.event.count({ where: { isBot: true, createdAt: { gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) } } })
   ]);
 
@@ -146,8 +149,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           <p className="mt-1 text-sm text-slate-400">First-party performance data for your public page and links.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link className="btn-secondary" href="/api/export?type=analytics&format=csv"><Download size={16} />CSV</Link>
-          <Link className="btn-secondary" href="/api/export?type=analytics&format=json"><Download size={16} />JSON</Link>
+          <a className="btn-secondary" href={`/api/export?type=analytics&format=csv&days=${days}`}><Download size={16} aria-hidden="true" />CSV ({days}d)</a>
+          <a className="btn-secondary" href={`/api/export?type=analytics&format=json&days=${days}`}><Download size={16} aria-hidden="true" />JSON ({days}d)</a>
         </div>
       </div>
 
@@ -165,8 +168,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <span className="text-sm font-semibold text-slate-400">Bot-filtered summary, {formatNumber(botCount)} bot events excluded.</span>
       </form>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Profile views" value={summary.views} delta={summary.deltas.views} icon={<Eye size={20} />} />
+        <MetricCard label="Unique visitors" value={summary.visitors} delta={summary.deltas.visitors} icon={<Users size={20} />} />
         <MetricCard label="Link clicks" value={summary.clicks} delta={summary.deltas.clicks} icon={<MousePointerClick size={20} />} tone="violet" />
         <MetricCard label="Click-through rate" value={`${summary.ctr}%`} delta={summary.deltas.ctr} suffix=" pts" icon={<BarChart3 size={20} />} tone="amber" />
         <MetricCard label="Subscribers" value={summary.subscribers} delta={summary.deltas.subscribers} icon={<Users size={20} />} tone="emerald" />
@@ -175,8 +179,42 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       <Timeline points={summary.timeline} max={summary.maxDaily} />
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <BreakdownList title="Top Links" items={summary.topLinks} empty="No link clicks in this range yet." />
+        <section className="panel">
+          <h2 className="mb-4 text-lg font-black text-white">Link performance</h2>
+          {summary.linkPerformance.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-left text-sm">
+                <thead className="text-xs uppercase tracking-wide text-slate-400">
+                  <tr>
+                    <th scope="col" className="py-2 pr-4">Link</th>
+                    <th scope="col" className="py-2 pr-4 text-right">Clicks</th>
+                    <th scope="col" className="py-2 pr-4 text-right">Unique</th>
+                    <th scope="col" className="py-2 text-right">CTR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.linkPerformance.slice(0, 20).map((link) => (
+                    <tr key={link.key} className="border-t border-white/10">
+                      <td className="max-w-xs truncate py-2 pr-4 font-semibold text-slate-100">{link.label}</td>
+                      <td className="py-2 pr-4 text-right">{formatNumber(link.clicks)}</td>
+                      <td className="py-2 pr-4 text-right">{formatNumber(link.uniqueClickers)}</td>
+                      <td className="py-2 text-right">{link.ctr}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-slate-400">CTR = clicks ÷ profile views in this range.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No link clicks in this range yet.</p>
+          )}
+        </section>
         <BreakdownList title="Top Referrers" items={summary.topReferrers} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <BreakdownList title="Campaigns (UTM)" items={summary.campaigns} empty="No visits with utm_ parameters yet. Add ?utm_source=... to links you share." />
+        <BreakdownList title="Countries" items={summary.countries} empty="Country data needs a proxy/CDN that sends a country header (e.g. Cloudflare). No IP geolocation is performed." />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -208,7 +246,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             <tbody>
               {events.map((event) => (
                 <tr key={event.id} className="border-t border-white/10">
-                  <td className="py-3 pr-4 text-slate-300">{event.createdAt.toLocaleString()}</td>
+                  <td className="py-3 pr-4 text-slate-300"><time dateTime={event.createdAt.toISOString()}>{event.createdAt.toISOString().replace("T", " ").slice(0, 16)} UTC</time></td>
                   <td className="py-3 pr-4 font-semibold text-white">{event.type.replaceAll("_", " ")}</td>
                   <td className="max-w-xs truncate py-3 pr-4 text-slate-300">{event.block?.title || event.shortCode || event.path || event.targetUrl || "Profile"}</td>
                   <td className="max-w-xs truncate py-3 pr-4 text-slate-400">{event.referrer || "Direct / unknown"}</td>

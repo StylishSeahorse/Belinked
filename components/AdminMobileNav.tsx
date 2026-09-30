@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { logoutAction } from "@/app/actions";
 import { adminNavItems } from "@/lib/admin-nav";
 
 export function AdminMobileNav() {
@@ -31,6 +32,11 @@ export function AdminMobileNav() {
             ))}
           </select>
         </label>
+        <form action={logoutAction}>
+          <button className="btn-secondary h-11 px-3" aria-label="Sign out">
+            Sign out
+          </button>
+        </form>
       </div>
     </header>
   );

@@ -8,6 +8,7 @@ services:
       APP_URL: "${APP_URL:-http://localhost:3000}"
       SESSION_SECRET: "${SESSION_SECRET:-change-this-local-dev-secret-to-32-characters}"
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      TRUST_PROXY: "${TRUST_PROXY:-false}"
       SETUP_EMAIL: "${SETUP_EMAIL:-owner@example.com}"
       SETUP_PASSWORD: "${SETUP_PASSWORD:-change-me-now}"
       SETUP_DISPLAY_NAME: "${SETUP_DISPLAY_NAME:-Belinked Owner}"

@@ -21,3 +21,29 @@ describe("safe redirects", () => {
     expect(() => assertSafeWebUrl("mailto:test@example.com")).toThrow();
   });
 });
+
+import { blockSchema, metadataJson, optionalDate } from "../lib/validation";
+
+describe("block validation", () => {
+  const base = { type: "LINK", title: "Hi", featured: false, status: "ACTIVE" };
+
+  it("rejects invalid dates and end-before-start", () => {
+    expect(optionalDate.safeParse("not a date").success).toBe(false);
+    expect(optionalDate.parse("")).toBeUndefined();
+    const result = blockSchema.safeParse({ ...base, startsAt: "2026-02-01T00:00:00Z", endsAt: "2026-01-01T00:00:00Z" });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires metadata to be a JSON object", () => {
+    expect(metadataJson.safeParse("[1,2]").success).toBe(false);
+    expect(metadataJson.safeParse("{oops").success).toBe(false);
+    expect(metadataJson.parse(' { "buttonLabel": "Go" } ')).toBe('{"buttonLabel":"Go"}');
+    expect(metadataJson.parse(undefined)).toBe("{}");
+  });
+
+  it("rejects dangerous link URLs", () => {
+    expect(blockSchema.safeParse({ ...base, url: "javascript:alert(1)" }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...base, url: "data:text/html,hi" }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...base, url: "https://example.com" }).success).toBe(true);
+  });
+});

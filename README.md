@@ -128,6 +128,7 @@ Important variables:
 - `APP_URL`
 - `SESSION_SECRET`
 - `COOKIE_SECURE`
+- `TRUST_PROXY` (set `true` only behind a reverse proxy that sets `X-Forwarded-For`/`X-Real-IP`; otherwise client IPs can't be spoofed for rate limiting)
 - `SETUP_EMAIL`
 - `SETUP_PASSWORD`
 - `SETUP_DISPLAY_NAME`
@@ -202,7 +203,32 @@ npm test
 npm run db:generate
 npm run db:push
 npm run db:seed
+npm run lint
+npm run test:e2e          # needs `npm run build` first; uses a throwaway prisma/e2e.db
+npm run owner:reset-password
 ```
+
+## Forgotten password
+
+Belinked has no email reset flow; recovery happens on the server:
+
+```bash
+npm run owner:reset-password
+# Docker:
+docker compose exec app npx tsx scripts/reset-owner-password.ts
+```
+
+This sets a new password, disables 2FA, signs out all sessions and clears login lockouts.
+
+## Backups
+
+- **Admin → Settings → Data & backups → Download backup** gives a JSON file with your profile, blocks, socials, themes, short links, subscribers and settings. Secrets (SMTP password, API tokens) and your password are never included.
+- **Restore** needs your current password and typing `RESTORE`. It replaces blocks, socials and short links in one transaction; a malformed file changes nothing.
+- For full disaster recovery also copy the SQLite file (`/app/data/belinked.db` in Docker) and the uploads volume, e.g. `docker compose cp app:/app/data/belinked.db ./belinked-backup.db`.
+
+## Custom domain
+
+Point your domain (or reverse proxy) at the app, serve it over HTTPS, and set `APP_URL=https://your.domain` plus `COOKIE_SECURE=true`. Canonical URLs, Open Graph URLs, the sitemap and the QR code all use `APP_URL`.
 
 ## Storage
 
@@ -264,9 +290,12 @@ Belinked is local-first and currently uses local storage only.
 
 ## Security Notes
 
-- Passwords are hashed with bcrypt
-- Sessions are HTTP-only cookies with expiry
-- Login attempts are rate-limited
+- Passwords are hashed with bcrypt; optional TOTP two-factor authentication
+- Sessions are HTTP-only cookies with expiry; "sign out other sessions" in Settings
+- Login attempts are rate-limited per IP and globally
+- Public pages only receive visible blocks and public fields (no internal notes, hidden or scheduled content)
+- Outbound previews/link checks are SSRF-protected; embeds are allow-listed and sandboxed
+- CSP, HSTS (on HTTPS), frame-ancestors and noindex headers for admin/API
 - URLs are validated to safe protocols
 - Uploads are type- and size-restricted
 - Secrets stay server-side
@@ -294,10 +323,4 @@ Belinked is already runnable locally with Docker and includes:
 - Short links
 - QR generation
 
-Still good candidates for future work:
-
-- CSV import UI
-- Password reset flow using configured SMTP
-- Protected digital download flow
-- Optional S3-compatible storage adapter
-- Richer analytics visualizations
+See [docs/audit-2026-09.md](docs/audit-2026-09.md) for the latest audit, feature inventory, architectural decisions and known limitations.

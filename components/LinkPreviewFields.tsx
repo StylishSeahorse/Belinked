@@ -40,8 +40,17 @@ export function LinkPreviewFields({
   });
   const [status, setStatus] = useState("");
 
-  async function fetchPreview() {
+  const [lastFetched, setLastFetched] = useState(url || "");
+
+  /** `overwrite` is true for the explicit button; automatic fetches only fill empty fields. */
+  async function fetchPreview(overwrite: boolean) {
     if (!values.url || !previewEnabled) return;
+    if (!overwrite && values.url === lastFetched) return;
+    if (!/^https?:\/\//i.test(values.url)) {
+      if (overwrite) setStatus("Previews work for http(s) links only.");
+      return;
+    }
+    setLastFetched(values.url);
     setStatus("Fetching preview...");
     try {
       const response = await fetch(`/api/link-preview?url=${encodeURIComponent(values.url)}`);
@@ -53,9 +62,9 @@ export function LinkPreviewFields({
       if (!response.ok) throw new Error(data.error || "Could not fetch preview.");
       setValues((current) => ({
         ...current,
-        title: data.title || current.title,
-        description: data.description || current.description,
-        imageUrl: data.imageUrl || current.imageUrl
+        title: overwrite || !current.title ? data.title || current.title : current.title,
+        description: overwrite || !current.description ? data.description || current.description : current.description,
+        imageUrl: overwrite || !current.imageUrl ? data.imageUrl || current.imageUrl : current.imageUrl
       }));
       setStatus(data.imageUrl ? "Preview added with image." : "Preview added, but this page did not expose a usable image.");
     } catch (error) {
@@ -74,15 +83,15 @@ export function LinkPreviewFields({
             placeholder={urlPlaceholder}
             value={values.url}
             onChange={(event) => setValues((current) => ({ ...current, url: event.target.value }))}
-            onBlur={previewEnabled ? fetchPreview : undefined}
+            onBlur={previewEnabled ? () => void fetchPreview(false) : undefined}
           />
           {previewEnabled ? (
-            <button className="btn-secondary shrink-0" type="button" onClick={fetchPreview} title="Fetch title and image">
-              <Wand2 size={16} />
+            <button className="btn-secondary shrink-0" type="button" onClick={() => void fetchPreview(true)} title="Fetch title and image" aria-label="Fetch title and image from URL">
+              <Wand2 size={16} aria-hidden="true" />
             </button>
           ) : null}
         </div>
-        {status ? <span className="text-xs text-black/55">{status}</span> : null}
+        {status ? <span className="text-xs text-black/55" role="status">{status}</span> : null}
       </label>
       <label className="field">
         {titleLabel}
@@ -103,6 +112,7 @@ export function LinkPreviewFields({
             {isVideo(values.imageUrl) ? (
               <video src={values.imageUrl} className="h-20 w-28 rounded object-cover" muted playsInline />
             ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- arbitrary owner-provided preview
               <img src={values.imageUrl} alt="" className="h-20 w-20 rounded object-cover" />
             )}
             <ImagePlus size={18} className="text-black/40" />

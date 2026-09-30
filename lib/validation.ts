@@ -51,6 +51,39 @@ export const slugSchema = z
   .max(48)
   .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/i, "Use letters, numbers, and dashes");
 
+/** ISO date string (from the admin date fields) -> Date; empty -> undefined. */
+export const optionalDate = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value, ctx) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime()) || date.getFullYear() < 2000 || date.getFullYear() > 2200) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a valid date and time" });
+      return z.NEVER;
+    }
+    return date;
+  });
+
+/** Block metadata must be a small JSON object. Stored normalized. */
+export const metadataJson = z
+  .string()
+  .trim()
+  .max(4000, "Metadata is too long")
+  .optional()
+  .transform((value, ctx) => {
+    if (!value) return "{}";
+    try {
+      const parsed = JSON.parse(value);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+      return JSON.stringify(parsed);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Metadata must be a JSON object, for example {\"buttonLabel\":\"Open\"}" });
+      return z.NEVER;
+    }
+  });
+
 export const profileSchema = z.object({
   slug: slugSchema,
   displayName: z.string().trim().min(1).max(80),
@@ -64,6 +97,7 @@ export const profileSchema = z.object({
   seoDescription: z.string().trim().max(180).optional(),
   ogImageUrl: optionalMediaUrl,
   cookieNoticeEnabled: z.boolean(),
+  allowIndexing: z.boolean(),
   priorityRedirectUrl: optionalSafeUrl,
   priorityRedirectOn: z.boolean()
 });
@@ -96,11 +130,13 @@ export const blockSchema = z.object({
   utmSource: z.string().trim().max(80).optional(),
   utmMedium: z.string().trim().max(80).optional(),
   utmCampaign: z.string().trim().max(80).optional(),
-  startsAt: z.string().optional(),
-  endsAt: z.string().optional(),
+  startsAt: optionalDate,
+  endsAt: optionalDate,
   status: z.enum(["ACTIVE", "HIDDEN", "ARCHIVED"]),
-  position: z.coerce.number().int().min(0).max(9999),
-  metadata: z.string().trim().default("{}")
+  metadata: metadataJson
+}).refine((value) => !value.startsAt || !value.endsAt || value.endsAt > value.startsAt, {
+  message: "End time must be after the start time",
+  path: ["endsAt"]
 });
 
 export const shortLinkSchema = z.object({
@@ -113,14 +149,24 @@ export const shortLinkSchema = z.object({
   destination: safeUrl,
   description: z.string().trim().max(160).optional(),
   isActive: z.boolean(),
-  startsAt: z.string().optional(),
-  endsAt: z.string().optional()
+  startsAt: optionalDate,
+  endsAt: optionalDate
+}).refine((value) => !value.startsAt || !value.endsAt || value.endsAt > value.startsAt, {
+  message: "End time must be after the start time",
+  path: ["endsAt"]
 });
 
 export function assertSafeRedirect(url: string): string {
   const parsed = safeUrl.parse(url);
   return parsed;
 }
+
+export const socialSchema = z.object({
+  label: z.string().trim().min(1, "Label is required").max(60),
+  url: safeUrl,
+  icon: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{1,30}$/),
+  isVisible: z.boolean()
+});
 
 export function safeHref(url?: string | null): string | undefined {
   const parsed = safeUrl.safeParse(url || "");

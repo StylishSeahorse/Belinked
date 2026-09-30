@@ -1,5 +1,4 @@
-import dns from "node:dns/promises";
-import net from "node:net";
+import { safeFetch } from "./safe-fetch";
 
 function decodeHtml(value: string) {
   return value
@@ -99,45 +98,12 @@ function jsonLdImages(html: string) {
   return images.find((image) => !/pixel|spacer|tracking/i.test(image));
 }
 
-function isPrivateIp(address: string) {
-  if (net.isIP(address) === 4) {
-    const parts = address.split(".").map(Number);
-    return (
-      parts[0] === 10 ||
-      parts[0] === 127 ||
-      (parts[0] === 169 && parts[1] === 254) ||
-      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-      (parts[0] === 192 && parts[1] === 168)
-    );
-  }
-  return address === "::1" || address.toLowerCase().startsWith("fc") || address.toLowerCase().startsWith("fd");
-}
-
-async function assertPublicHttpUrl(input: string) {
-  const url = new URL(input);
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only http and https URLs can be previewed.");
-  const hostname = url.hostname.toLowerCase();
-  if (["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname)) throw new Error("Local URLs cannot be previewed.");
-  const addresses = await dns.lookup(hostname, { all: true });
-  if (addresses.some((item) => isPrivateIp(item.address))) throw new Error("Private network URLs cannot be previewed.");
-  return url;
-}
-
 export async function fetchLinkPreview(input: string) {
-  const url = await assertPublicHttpUrl(input);
-  const response = await fetch(url, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(8000),
-    headers: {
-      "user-agent": "Belinked link preview bot/0.1",
-      accept: "text/html,application/xhtml+xml"
-    }
-  });
-  if (!response.ok) throw new Error(`Preview request failed with ${response.status}.`);
-  const contentType = response.headers.get("content-type") || "";
+  const response = await safeFetch(input, { headers: { accept: "text/html,application/xhtml+xml" }, maxBytes: 400_000 });
+  if (response.status < 200 || response.status >= 300) throw new Error(`Preview request failed with ${response.status}.`);
+  const contentType = String(response.headers["content-type"] || "");
   if (!contentType.includes("text/html")) throw new Error("URL did not return an HTML page.");
-  const html = (await response.text()).slice(0, 400_000);
-  return extractLinkPreviewFromHtml(html, response.url, url.hostname);
+  return extractLinkPreviewFromHtml(response.body, response.url, new URL(response.url).hostname);
 }
 
 export function extractLinkPreviewFromHtml(html: string, baseUrl: string, fallbackTitle: string) {
@@ -154,6 +120,15 @@ export function extractLinkPreviewFromHtml(html: string, baseUrl: string, fallba
   return {
     title: meta(html, "og:title") || meta(html, "twitter:title") || title(html) || fallbackTitle,
     description: meta(html, "og:description") || meta(html, "description") || meta(html, "twitter:description") || "",
-    imageUrl: image ? new URL(image, baseUrl).toString() : ""
+    imageUrl: image ? httpImage(image, baseUrl) : ""
   };
+}
+
+function httpImage(image: string, baseUrl: string) {
+  try {
+    const url = new URL(image, baseUrl);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
 }

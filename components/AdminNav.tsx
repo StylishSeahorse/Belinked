@@ -23,6 +23,7 @@ export function AdminNav() {
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={[
                 "rounded-xl px-4 py-3 text-sm font-semibold transition",
                 active ? "bg-cyan-400/15 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(103,232,249,.18)]" : "text-slate-300 hover:bg-white/6 hover:text-white"
@@ -33,9 +34,9 @@ export function AdminNav() {
           );
         })}
       </nav>
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
-        Local-first admin for your public profile, themes, analytics, and redirects.
-      </div>
+      <a href="/" target="_blank" rel="noopener" className="btn-secondary">
+        View public page
+      </a>
       <form action={logoutAction} className="mt-auto">
         <button className="btn-secondary w-full">Sign out</button>
       </form>

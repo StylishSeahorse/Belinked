@@ -1,9 +1,9 @@
 export const adminNavItems = [
-  ["Overview", "/admin"],
+  ["Dashboard", "/admin"],
+  ["Links & blocks", "/admin/blocks"],
   ["Profile", "/admin/profile"],
-  ["Blocks", "/admin/blocks"],
+  ["Appearance", "/admin/themes"],
   ["Socials", "/admin/socials"],
-  ["Themes", "/admin/themes"],
   ["Analytics", "/admin/analytics"],
   ["Short links", "/admin/short-links"],
   ["Settings", "/admin/settings"]

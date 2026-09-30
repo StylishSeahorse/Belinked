@@ -1,11 +1,12 @@
 import { requireOwner } from "@/lib/auth";
+import { buildBackup } from "@/lib/backup";
+import { LINK_CSV_TEMPLATE, toCsv } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
 
-function csv(rows: Array<Record<string, unknown>>) {
-  if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const esc = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  return [headers.join(","), ...rows.map((row) => headers.map((header) => esc(row[header])).join(","))].join("\n");
+export const dynamic = "force-dynamic";
+
+function attachment(filename: string) {
+  return { "content-disposition": `attachment; filename="${filename}"`, "cache-control": "no-store" };
 }
 
 export async function GET(request: Request) {
@@ -13,32 +14,40 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const type = url.searchParams.get("type") || "all";
   const format = url.searchParams.get("format") || "json";
+  const stamp = new Date().toISOString().slice(0, 10);
+
   if (type === "blocks-template") {
-    return new Response("type,title,url,description,position,status\nLINK,Example,https://example.com,Description,1,ACTIVE\n", {
-      headers: { "content-type": "text/csv", "content-disposition": "attachment; filename=blocks-template.csv" }
+    return new Response(LINK_CSV_TEMPLATE, { headers: { "content-type": "text/csv; charset=utf-8", ...attachment("links-template.csv") } });
+  }
+
+  if (type === "analytics") {
+    const days = Number(url.searchParams.get("days") || 0);
+    const events = await prisma.event.findMany({
+      where: days > 0 ? { createdAt: { gte: new Date(Date.now() - Math.min(days, 3650) * 86_400_000) } } : undefined,
+      orderBy: { createdAt: "desc" },
+      include: { block: { select: { title: true } } }
+    });
+    const rows = events.map(({ block, ipHash: _ipHash, ...event }) => {
+      void _ipHash;
+      return { ...event, blockTitle: block?.title ?? "" };
+    });
+    if (format === "csv") return new Response(toCsv(rows), { headers: { "content-type": "text/csv; charset=utf-8", ...attachment(`belinked-analytics-${stamp}.csv`) } });
+    return Response.json(rows, { headers: attachment(`belinked-analytics-${stamp}.json`) });
+  }
+
+  if (type === "subscribers") {
+    const subscribers = await prisma.subscriber.findMany({ orderBy: { createdAt: "desc" } });
+    if (format === "csv") return new Response(toCsv(subscribers), { headers: { "content-type": "text/csv; charset=utf-8", ...attachment(`belinked-subscribers-${stamp}.csv`) } });
+    return Response.json(subscribers, { headers: attachment(`belinked-subscribers-${stamp}.json`) });
+  }
+
+  if (type === "links") {
+    const blocks = await prisma.block.findMany({ where: { type: "LINK" }, orderBy: { position: "asc" } });
+    return new Response(toCsv(blocks.map((block) => ({ title: block.title, url: block.url, description: block.description, status: block.status }))), {
+      headers: { "content-type": "text/csv; charset=utf-8", ...attachment(`belinked-links-${stamp}.csv`) }
     });
   }
-  const data =
-    type === "analytics"
-      ? await prisma.event.findMany({ orderBy: { createdAt: "desc" } })
-      : {
-          owners: await prisma.owner.findMany({ select: { id: true, email: true, displayName: true, createdAt: true } }),
-          profiles: await prisma.profile.findMany(),
-          blocks: await prisma.block.findMany(),
-          socials: await prisma.socialIcon.findMany(),
-          themes: await prisma.theme.findMany(),
-          shortLinks: await prisma.shortLink.findMany(),
-          subscribers: await prisma.subscriber.findMany(),
-          events: await prisma.event.findMany(),
-          settings: await prisma.appSetting.findMany(),
-          auditLogs: await prisma.auditLog.findMany()
-        };
-  if (format === "csv" && Array.isArray(data)) {
-    return new Response(csv(data), {
-      headers: { "content-type": "text/csv", "content-disposition": `attachment; filename=${type}.csv` }
-    });
-  }
-  return Response.json(data, {
-    headers: { "content-disposition": `attachment; filename=${type}.json` }
-  });
+
+  const backup = await buildBackup({ includeAnalytics: url.searchParams.get("analytics") === "1" });
+  return Response.json(backup, { headers: attachment(`belinked-backup-${stamp}.json`) });
 }

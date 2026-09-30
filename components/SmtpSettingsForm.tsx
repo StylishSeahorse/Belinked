@@ -1,5 +1,7 @@
 "use client";
 
+import { FormRestore } from "@/components/FormRestore";
+
 import { useActionState } from "react";
 import { saveSettingsAction, testSmtpSettingsAction, type SmtpTestActionState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -21,21 +23,18 @@ export function SmtpSettingsForm({ platform, smtp }: SmtpSettingsFormProps) {
 
   return (
     <form action={saveSettingsAction} className="panel grid gap-4 md:grid-cols-2">
+      <FormRestore id="settings" />
+      <h2 className="text-xl font-black md:col-span-2">General</h2>
       <label className="field">
         Platform name
         <input className="input" name="name" defaultValue={text(platform.name, "Belinked")} />
       </label>
       <label className="field">
-        Support URL
-        <input className="input" name="supportUrl" defaultValue={text(platform.supportUrl)} />
-      </label>
-      <label className="field md:col-span-2">
         Footer text
-        <input className="input" name="footerText" defaultValue={text(platform.footerText)} />
+        <input className="input" name="footerText" defaultValue={text(platform.footerText)} maxLength={200} />
+        <span className="text-xs text-white/55">Shown at the bottom of your public page. Leave empty to hide.</span>
       </label>
-      <div className="rounded-md border border-white/10 bg-white/[.04] p-3 text-sm font-semibold text-white/65 md:col-span-2">
-        Storage is always local for this self-hosted app.
-      </div>
+      <h2 className="border-t border-white/10 pt-4 text-xl font-black md:col-span-2">Email (SMTP)</h2>
       <label className="field">
         Email provider
         <select className="input" name="emailProvider" defaultValue={text(platform.emailProvider, "disabled")}>
@@ -57,7 +56,12 @@ export function SmtpSettingsForm({ platform, smtp }: SmtpSettingsFormProps) {
       </label>
       <label className="field">
         SMTP password
-        <input className="input" name="smtpPassword" type="password" placeholder={smtp.password ? "Saved; leave blank to keep" : ""} autoComplete="current-password" />
+        <input className="input" name="smtpPassword" type="password" placeholder={smtp.password ? "Saved; leave blank to keep" : ""} autoComplete="new-password" />
+        {smtp.password ? (
+          <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/60">
+            <input className="w-auto" type="checkbox" name="clearSmtpPassword" /> Clear saved password
+          </span>
+        ) : null}
       </label>
       <label className="field">
         From name
@@ -107,8 +111,13 @@ export function SmtpSettingsForm({ platform, smtp }: SmtpSettingsFormProps) {
             autoComplete="off"
           />
         </label>
+        {meta.instagramAccessToken || meta.facebookAccessToken ? (
+          <label className="flex items-center gap-2 text-xs font-semibold text-white/60 md:col-span-2">
+            <input className="w-auto" type="checkbox" name="clearMetaTokens" /> Clear saved access tokens
+          </label>
+        ) : null}
         <p className="text-sm text-white/55 md:col-span-2">
-          Instagram follower counts require an Instagram Business or Creator account and Graph API access. Facebook follower counts require Page access.
+          Results are cached for 15 minutes so your page stays fast. Instagram follower counts require an Instagram Business or Creator account and Graph API access. Facebook follower counts require Page access.
         </p>
       </div>
       {testState ? (

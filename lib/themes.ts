@@ -12,6 +12,16 @@ export type ThemeSettings = {
   shadow: string;
   layout: "stack" | "compact" | "spotlight";
   backgroundImage?: string;
+  backgroundVideo?: string;
+  backgroundOverlay?: number;
+  backgroundBlur?: number;
+  avatarShape?: "circle" | "rounded" | "square";
+  hoverEffect?: "lift" | "grow" | "glow" | "none";
+  entrance?: "none" | "fade" | "rise";
+  maxWidth?: "narrow" | "normal" | "wide";
+  spacing?: "tight" | "normal" | "relaxed";
+  fontSize?: "small" | "normal" | "large";
+  buttonFill?: "solid" | "outline" | "soft";
 };
 
 export const defaultThemes: Array<{ name: string; isDefault: boolean; settings: ThemeSettings }> = [
@@ -197,11 +207,99 @@ export const defaultThemes: Array<{ name: string; isDefault: boolean; settings: 
   }
 ];
 
-export function parseTheme(settings?: string | null): ThemeSettings {
-  if (!settings) return defaultThemes[0].settings;
+const layouts = ["stack", "compact", "spotlight"] as const;
+const avatarShapes = ["circle", "rounded", "square"] as const;
+const hoverEffects = ["lift", "grow", "glow", "none"] as const;
+const entrances = ["none", "fade", "rise"] as const;
+const widths = ["narrow", "normal", "wide"] as const;
+const spacings = ["tight", "normal", "relaxed"] as const;
+const fontSizes = ["small", "normal", "large"] as const;
+const buttonFills = ["solid", "outline", "soft"] as const;
+
+export const themeOptions = { layouts, avatarShapes, hoverEffects, entrances, widths, spacings, fontSizes, buttonFills };
+
+export const fontPresets = [
+  ["Inter, ui-sans-serif, system-ui", "Modern sans"],
+  ["ui-rounded, 'SF Pro Rounded', 'Nunito', ui-sans-serif, system-ui", "Rounded sans"],
+  ["Georgia, ui-serif, serif", "Classic serif"],
+  ["'Iowan Old Style', 'Palatino Linotype', Palatino, ui-serif, serif", "Book serif"],
+  ["ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace", "Monospace"],
+  ["'Trebuchet MS', 'Segoe UI', ui-sans-serif, sans-serif", "Humanist sans"]
+] as const;
+
+/**
+ * Theme values are written into inline CSS on the public page, so anything that
+ * could terminate a declaration or load remote resources is rejected here.
+ */
+export function safeCssValue(value: unknown, fallback: string, max = 240): string {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max) return fallback;
+  if (/[;{}<>\\"`]|url\s*\(|expression\s*\(|@import|javascript:/i.test(trimmed)) return fallback;
+  return trimmed;
+}
+
+/** Only local uploads or https URLs may be used for theme media. */
+export function safeThemeMediaUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^\/uploads\/[a-z0-9_-]+\/[a-z0-9._-]+$/i.test(trimmed)) return trimmed;
   try {
-    return { ...defaultThemes[0].settings, ...JSON.parse(settings) };
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
+    return url.toString();
   } catch {
-    return defaultThemes[0].settings;
+    return undefined;
+  }
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number) {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+export function normalizeTheme(input: Record<string, unknown>): ThemeSettings {
+  const base = defaultThemes[0].settings;
+  return {
+    background: safeCssValue(input.background, base.background),
+    foreground: safeCssValue(input.foreground, base.foreground, 60),
+    muted: safeCssValue(input.muted, base.muted, 60),
+    buttonBackground: safeCssValue(input.buttonBackground, base.buttonBackground),
+    buttonForeground: safeCssValue(input.buttonForeground, base.buttonForeground, 60),
+    buttonBorder: safeCssValue(input.buttonBorder, base.buttonBorder, 60),
+    buttonBorderWidth: clampNumber(input.buttonBorderWidth, 0, 8, base.buttonBorderWidth),
+    accent: safeCssValue(input.accent, base.accent, 60),
+    fontFamily: safeCssValue(input.fontFamily, base.fontFamily, 160),
+    radius: clampNumber(input.radius, 0, 40, base.radius),
+    shadow: safeCssValue(input.shadow, "none"),
+    layout: oneOf(input.layout, layouts, "stack"),
+    backgroundImage: safeThemeMediaUrl(input.backgroundImage),
+    backgroundVideo: safeThemeMediaUrl(input.backgroundVideo),
+    backgroundOverlay: clampNumber(input.backgroundOverlay, 0, 90, 0),
+    backgroundBlur: clampNumber(input.backgroundBlur, 0, 20, 0),
+    avatarShape: oneOf(input.avatarShape, avatarShapes, "circle"),
+    hoverEffect: oneOf(input.hoverEffect, hoverEffects, "lift"),
+    entrance: oneOf(input.entrance, entrances, "none"),
+    maxWidth: oneOf(input.maxWidth, widths, "normal"),
+    spacing: oneOf(input.spacing, spacings, "normal"),
+    fontSize: oneOf(input.fontSize, fontSizes, "normal"),
+    buttonFill: oneOf(input.buttonFill, buttonFills, "solid")
+  };
+}
+
+export function parseTheme(settings?: string | null): ThemeSettings {
+  if (!settings) return normalizeTheme({});
+  try {
+    const parsed = JSON.parse(settings);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return normalizeTheme({});
+    return normalizeTheme(parsed as Record<string, unknown>);
+  } catch {
+    return normalizeTheme({});
   }
 }

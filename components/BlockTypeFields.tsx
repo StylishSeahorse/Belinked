@@ -1,7 +1,7 @@
 "use client";
 
 import type { BlockType } from "@prisma/client";
-import { blockMetadataExamples, blockTypeHints, blockTypes } from "@/lib/block-types";
+import { blockMetadataExamples, blockTypeHints, blockTypeLabels, blockTypes } from "@/lib/block-types";
 import { useState } from "react";
 import { DisplayStylePicker } from "./DisplayStylePicker";
 import { LinkPreviewFields } from "./LinkPreviewFields";
@@ -26,7 +26,14 @@ function mediaField(copy: { currentMedia?: string; label: string; help: string }
     <label className="field md:col-span-2">
       {copy.label}
       <input className="input" name="mediaFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime" />
-      {copy.currentMedia ? <span className="text-xs text-black/55">Current media: {copy.currentMedia}</span> : null}
+      {copy.currentMedia ? (
+        <span className="flex flex-wrap items-center gap-3 text-xs text-black/55">
+          <span className="truncate">Current media: {copy.currentMedia}</span>
+          <span className="inline-flex items-center gap-1 font-semibold">
+            <input className="w-auto" type="checkbox" name="removeMedia" /> Remove
+          </span>
+        </span>
+      ) : null}
       <span className="text-xs text-black/55">{copy.help}</span>
     </label>
   );
@@ -65,7 +72,7 @@ export function BlockTypeFields({
         <select className="input" name="type" value={type} onChange={(event) => setType(event.target.value as BlockType)}>
           {blockTypes.map((blockType) => (
             <option key={blockType} value={blockType}>
-              {blockType}
+              {blockTypeLabels[blockType]}
             </option>
           ))}
         </select>
@@ -246,7 +253,9 @@ export function BlockTypeFields({
         </>
       ) : null}
 
-      <label className="field md:col-span-2">
+      <details className="md:col-span-3">
+        <summary className="cursor-pointer text-sm font-semibold">Advanced: button labels, prices, embed override (JSON)</summary>
+      <label className="field mt-3">
         Metadata JSON
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => setMetadata(blockMetadataExamples[type])}>
@@ -280,6 +289,7 @@ export function BlockTypeFields({
           placeholder={blockMetadataExamples[type]}
         />
       </label>
+      </details>
 
       <label className="field md:col-span-2">
         Internal note

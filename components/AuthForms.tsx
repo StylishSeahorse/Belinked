@@ -1,23 +1,47 @@
 "use client";
 
 import { useActionState } from "react";
-import { loginAction, setupAction } from "@/app/actions";
+import { loginAction, setupAction, type AuthFormState } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 
-export function LoginForm() {
-  const [state, action] = useActionState(loginAction, null);
+function ErrorBox({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">
+      {message}
+    </p>
+  );
+}
+
+export function LoginForm({ next, notice }: { next?: string; notice?: string }) {
+  const [state, action] = useActionState<AuthFormState, FormData>(loginAction, null);
   return (
     <form action={action} className="panel grid gap-4">
-      {state?.error ? <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{state.error}</p> : null}
+      {notice && !state ? (
+        <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+          {notice}
+        </p>
+      ) : null}
+      <ErrorBox message={state?.error} />
+      <input type="hidden" name="next" value={next || ""} />
       <label className="field">
         Email
-        <input className="input" name="email" type="email" required />
+        {/* React resets the form after each attempt; restore the email so it need not be retyped. */}
+        <input key={state?.email} className="input" name="email" type="email" autoComplete="username" defaultValue={state?.email} required autoFocus={!state?.email} />
       </label>
       <label className="field">
         Password
-        <input className="input" name="password" type="password" required />
+        <input className="input" name="password" type="password" autoComplete="current-password" required autoFocus={Boolean(state?.email) && !state?.needsTotp} />
       </label>
-      <SubmitButton>Sign in</SubmitButton>
+      {state?.needsTotp ? (
+        <label className="field">
+          Authentication code
+          <input className="input tracking-widest" name="totp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus />
+          <span className="text-xs text-black/55">Enter the 6-digit code from your authenticator app.</span>
+        </label>
+      ) : null}
+      <SubmitButton pendingLabel="Signing in...">Sign in</SubmitButton>
+      <p className="text-xs text-black/55">Forgot your password? Run <code>npm run owner:reset-password</code> on the server (see README).</p>
     </form>
   );
 }
@@ -28,22 +52,28 @@ type SetupFormDefaults = {
 };
 
 export function SetupForm({ defaults = {} }: { defaults?: SetupFormDefaults }) {
-  const [, action] = useActionState(setupAction, null);
+  const [state, action] = useActionState<AuthFormState, FormData>(setupAction, null);
   return (
     <form action={action} className="panel grid gap-4">
+      <ErrorBox message={state?.error} />
       <label className="field">
         Display name
-        <input className="input" name="displayName" defaultValue={defaults.displayName} required />
+        <input key={`n-${state?.displayName}`} className="input" name="displayName" defaultValue={state?.displayName ?? defaults.displayName} autoComplete="name" required />
       </label>
       <label className="field">
         Email
-        <input className="input" name="email" type="email" defaultValue={defaults.email} required />
+        <input key={`e-${state?.email}`} className="input" name="email" type="email" defaultValue={state?.email ?? defaults.email} autoComplete="username" required />
       </label>
+      <div className="field">
+        <label htmlFor="setup-password">Password</label>
+        <input id="setup-password" className="input" name="password" type="password" minLength={12} autoComplete="new-password" aria-describedby="setup-password-hint" required />
+        <span id="setup-password-hint" className="text-xs text-black/55">At least 12 characters. A passphrase works well.</span>
+      </div>
       <label className="field">
-        Password
-        <input className="input" name="password" type="password" minLength={12} required />
+        Confirm password
+        <input className="input" name="confirmPassword" type="password" minLength={12} autoComplete="new-password" required />
       </label>
-      <SubmitButton>Create owner</SubmitButton>
+      <SubmitButton pendingLabel="Creating...">Create owner</SubmitButton>
     </form>
   );
 }

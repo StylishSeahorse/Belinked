@@ -128,3 +128,167 @@ select {
 .admin-shell details summary {
   color: #f8fbff;
 }
+
+/* ---------- Public profile ---------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.bl-page a:focus-visible,
+.bl-page button:focus-visible,
+.bl-page input:focus-visible {
+  outline: 3px solid var(--bl-accent);
+  outline-offset: 3px;
+}
+
+.bl-card {
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.bl-hover-lift .bl-card:hover {
+  transform: translateY(-2px);
+}
+
+.bl-hover-grow .bl-card:hover {
+  transform: scale(1.02);
+}
+
+.bl-hover-glow .bl-card:hover {
+  box-shadow: 0 0 0 3px var(--bl-accent) !important;
+}
+
+.bl-social {
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.bl-social:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--bl-fg) 10%, transparent);
+}
+
+.bl-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: min(var(--bl-radius), 999px);
+  background: var(--bl-accent);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.bl-input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: min(var(--bl-radius), 12px);
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: rgba(255, 255, 255, 0.9);
+  color: #151515;
+  padding: 0.5rem 0.75rem;
+}
+
+.bl-pulse {
+  animation: bl-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes bl-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+.bl-enter-fade main > * {
+  animation: bl-fade 500ms ease both;
+}
+
+.bl-enter-rise main > * {
+  animation: bl-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bl-enter-rise main > *:nth-child(2), .bl-enter-fade main > *:nth-child(2) { animation-delay: 80ms; }
+.bl-enter-rise main > *:nth-child(3), .bl-enter-fade main > *:nth-child(3) { animation-delay: 160ms; }
+.bl-enter-rise main > *:nth-child(n + 4), .bl-enter-fade main > *:nth-child(n + 4) { animation-delay: 220ms; }
+
+@keyframes bl-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bl-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bl-page *,
+  .bl-page *::before,
+  .bl-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .bl-page .bl-card:hover,
+  .bl-page .bl-social:hover {
+    transform: none;
+  }
+
+  .bl-bg-video {
+    display: none;
+  }
+}
+
+/* ---------- Admin additions ---------- */
+
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-red-400/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+
+.admin-shell a:focus-visible,
+.admin-shell button:focus-visible,
+.admin-shell summary:focus-visible,
+.admin-shell select:focus-visible,
+.admin-shell input:focus-visible,
+.admin-shell textarea:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+.admin-shell .text-black\/40 {
+  color: rgba(203, 213, 225, 0.6) !important;
+}
+
+.admin-shell .bg-white {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 50;
+  border-radius: 0.375rem;
+  background: #22d3ee;
+  color: #06131b;
+  padding: 0.5rem 0.75rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}

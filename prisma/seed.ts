@@ -53,8 +53,7 @@ async function main() {
       key: "platform",
       value: JSON.stringify({
         name: "Belinked",
-        footerText: "Powered by a local-first link hub",
-        supportUrl: "",
+        footerText: "",
         storageMode: process.env.STORAGE_MODE || "local",
         emailProvider: process.env.SMTP_HOST ? "smtp" : "disabled",
         meta: {
