@@ -40,7 +40,7 @@ async function main() {
         slug: "profile",
         displayName: process.env.SETUP_DISPLAY_NAME || "Belinked Owner",
         username: "local-profile",
-        bio: "A self-hosted link hub for everything worth sharing.",
+        bio: "",
         themeId: theme?.id
       }
     });

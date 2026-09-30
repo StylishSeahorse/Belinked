@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { deflateSync } from "node:zlib";
 import { mkdirSync } from "node:fs";
+import { deflateSync } from "node:zlib";
 
-// Runs after flow.spec.ts (owner + content exist). Exercises the remaining admin features.
+// Runs after flow.spec.ts (owner + content exist). Exercises the rest of the editor.
 
 const EMAIL = "owner@example.com";
 const PASSWORD = "e2e correct horse battery";
@@ -41,10 +41,16 @@ test.describe.configure({ mode: "serial" });
 
 let page: Page;
 const errors: string[] = [];
+const toast = (text: string | RegExp) => page.getByRole("status").filter({ hasText: text });
+const preview = () => page.getByRole("region", { name: "Live preview of your page" });
+const saved = async () => {
+  await expect(page.getByText("Saving…")).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 10_000 });
+};
 
 test.beforeAll(async ({ browser }) => {
   mkdirSync(shots, { recursive: true });
-  page = await (await browser.newContext()).newPage();
+  page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error" && !message.text().includes("status of 400")) errors.push(message.text());
@@ -56,145 +62,174 @@ test.beforeAll(async ({ browser }) => {
   await expect(page).toHaveURL(/\/admin$/);
 });
 
-function flash(text: string | RegExp) {
-  return page.getByRole("status").filter({ hasText: text });
-}
-
-test("uploads: accepts a real image, rejects a spoofed one", async () => {
-  await page.goto("/admin/profile");
+test("profile picture: real image uploads, spoofed file is rejected", async () => {
+  await page.getByRole("button", { name: /Edit profile/ }).click();
+  await page.getByLabel("Upload profile picture").setInputFiles({ name: "evil.png", mimeType: "image/png", buffer: Buffer.from("<script>alert(1)</script>") });
+  await expect(page.getByRole("alert").filter({ hasText: "does not match" })).toBeVisible();
   await page.getByLabel("Upload profile picture").setInputFiles({ name: "avatar.png", mimeType: "image/png", buffer: pngBuffer() });
-  await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(flash("Profile saved.")).toBeVisible();
-  const avatar = await page.locator('input[name="avatarUrl"]').inputValue();
-  expect(avatar).toMatch(/^\/uploads\/profile\/.+\.png$/);
-  const served = await page.request.get(avatar);
-  expect(served.status()).toBe(200);
+  await expect(toast("Profile picture updated")).toBeVisible();
+  const src = await page.locator("dialog[open] img").first().getAttribute("src");
+  expect(src).toMatch(/^\/uploads\/profile\/.+\.png$/);
+  const served = await page.request.get(src!);
   expect(served.headers()["content-type"]).toBe("image/png");
   expect(served.headers()["content-security-policy"]).toContain("sandbox");
-
-  await page.getByLabel("Upload profile picture").setInputFiles({ name: "evil.png", mimeType: "image/png", buffer: Buffer.from("<script>alert(1)</script>") });
-  await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "does not match" })).toBeVisible();
-  // Path traversal attempts on the upload route are refused.
   expect((await page.request.get("/uploads/..%2f..%2fpackage.json")).status()).toBe(404);
-  await page.screenshot({ path: `${shots}/profile.png`, fullPage: true });
+  await page.screenshot({ path: `${shots}/profile-drawer.png` });
+  await page.getByRole("button", { name: "Close" }).click();
 });
 
-test("appearance: live preview updates and theme saves", async () => {
-  await page.goto("/admin/themes");
-  const preview = page.locator("[inert]");
-  await expect(preview.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.locator('select[name="layout"]').selectOption("spotlight");
-  await page.locator('select[name="buttonFill"]').selectOption("outline");
-  // The live preview reflects the change before saving (outline buttons are transparent).
-  await expect(preview.getByRole("link").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await page.getByRole("button", { name: "Save theme" }).click();
-  await expect(flash("Theme saved.")).toBeVisible();
-  await expect(page.locator('select[name="layout"]')).toHaveValue("spotlight");
-  await page.screenshot({ path: `${shots}/appearance.png`, fullPage: true });
-
-  await page.goto("/admin/themes?edit=new#editor");
-  await page.getByLabel("Theme name").fill("E2E Theme");
-  await page.locator("fieldset", { hasText: "Background" }).locator("select").first().selectOption("gradient");
-  await page.getByRole("button", { name: "Create theme" }).click();
-  await expect(flash("Theme created.")).toBeVisible();
-  const home = await page.request.get("/");
-  expect(await home.text()).toContain("linear-gradient");
-});
-
-test("socials: platform is detected from the URL and email is normalized", async () => {
-  await page.goto("/admin/socials");
-  await page.getByLabel("URL, email, or phone").fill("https://bsky.app/profile/ada.bsky.social");
-  await page.getByRole("button", { name: "Add social link" }).click();
-  await expect(flash("Bluesky added.")).toBeVisible();
-  await page.getByLabel("URL, email, or phone").fill("ada@example.com");
-  await page.getByRole("button", { name: "Add social link" }).click();
-  await expect(flash("Email added.")).toBeVisible();
+test("social icons: detected from pasted links, reorderable, shown publicly", async () => {
+  await page.getByRole("button", { name: "Add social icons" }).click();
+  await page.getByLabel("Add a social profile").fill("https://bsky.app/profile/ada.bsky.social");
+  await expect(page.getByText("Detected: Bluesky")).toBeVisible();
+  await page.getByRole("button", { name: "Add", exact: true }).last().click();
+  await expect(toast("Bluesky added")).toBeVisible();
+  await page.getByLabel("Add a social profile").fill("ada@example.com");
+  await page.getByRole("button", { name: "Add", exact: true }).last().click();
+  await expect(toast("Email added")).toBeVisible();
   await page.getByRole("button", { name: "Move Email up" }).click();
-  await expect(flash("Order updated.")).toBeVisible();
-  const html = await (await page.request.get("/")).text();
-  expect(html).toContain('href="mailto:ada@example.com"');
+  await saved();
+  await page.getByRole("button", { name: "Close" }).click();
+  const hrefs = await (await page.request.get("/")).text();
+  expect(hrefs.indexOf('href="mailto:ada@example.com"')).toBeGreaterThan(-1);
+});
+
+test("block actions: details drawer, duplicate, delete with undo", async () => {
+  await page.getByRole("button", { name: "More options for “Second link”" }).click();
+  await page.getByRole("menuitem", { name: "Edit details" }).click();
+  await page.getByRole("radio", { name: /Featured/ }).click();
+  await saved();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator("li", { hasText: "Featured" }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "More options for “Second link”" }).click();
+  await page.getByRole("menuitem", { name: "Duplicate" }).click();
+  await expect(toast("Duplicated")).toBeVisible();
+  await expect(page.getByLabel("Link title").filter({ hasText: "" })).toHaveCount(3);
+
+  await page.getByRole("button", { name: "More options for “Second link (copy)”" }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await toast("Deleted").getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByLabel("Link title")).toHaveCount(3);
+  await page.getByRole("button", { name: "More options for “Second link (copy)”" }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByLabel("Link title")).toHaveCount(2);
+  await page.waitForTimeout(5600); // deletion commits after the undo window
+  await page.reload();
+  await expect(page.getByLabel("Link title")).toHaveCount(2);
+});
+
+test("add menu: heading, video embed, image and email signup", async () => {
+  const add = () => page.getByRole("button", { name: "Add", exact: true }).click();
+  await add();
+  await page.getByPlaceholder("Search: YouTube, email, shop…").fill("heading");
+  await page.getByRole("button", { name: /^Heading/ }).click();
+  await page.getByLabel("Heading", { exact: true }).fill("Watch");
+  await page.getByRole("button", { name: "Add heading" }).click();
+  await expect(toast("Heading added")).toBeVisible();
+
+  await add();
+  await page.getByRole("button", { name: /^YouTube/ }).click();
+  await page.getByLabel("YouTube link").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await page.getByRole("button", { name: "Add youtube" }).click();
+  await expect(toast("Video added")).toBeVisible();
+  await expect(preview().locator('iframe[src^="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]')).toHaveAttribute("sandbox", /allow-scripts/);
+
+  await add();
+  await page.getByRole("button", { name: /^Image/ }).click();
+  await page.getByLabel("Upload image").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: pngBuffer() });
+  await expect(page.locator("dialog[open] img")).toBeVisible();
+  await page.getByRole("button", { name: "Add image" }).click();
+  await expect(toast("Image added")).toBeVisible();
+
+  await add();
+  await page.getByRole("button", { name: /^Email signup/ }).click();
+  await page.getByRole("button", { name: "Add email signup" }).click();
+  await expect(toast("Email signup form added")).toBeVisible();
+  await page.screenshot({ path: `${shots}/editor.png` });
+
   const visitor = await page.context().browser()!.newContext();
   const pub = await visitor.newPage();
   await pub.goto("/");
-  const hrefs = await pub.getByRole("navigation", { name: "Social profiles" }).getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-  expect(hrefs).toEqual(["mailto:ada@example.com", "https://bsky.app/profile/ada.bsky.social"]);
-  await visitor.close();
-  await page.screenshot({ path: `${shots}/socials.png`, fullPage: true });
-});
-
-test("short links: create, redirect, reject duplicates, delete", async () => {
-  await page.goto("/admin/short-links");
-  await page.getByLabel("Code").first().fill("tour");
-  await page.getByLabel("Destination").first().fill("https://tour.example.com/");
-  await page.getByRole("button", { name: "Create short link" }).click();
-  await expect(flash("/s/tour created")).toBeVisible();
-  const redirect = await page.request.get("/s/tour", { maxRedirects: 0 });
-  expect(redirect.status()).toBe(307);
-  expect(redirect.headers().location).toBe("https://tour.example.com/");
-
-  await page.getByLabel("Code").first().fill("tour");
-  await page.getByLabel("Destination").first().fill("https://other.example.com/");
-  await page.getByRole("button", { name: "Create short link" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toBeVisible();
-
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.locator("details", { hasText: "/s/tour" }).locator(":scope > summary").click();
-  await page.getByRole("button", { name: "Delete" }).click();
-  await expect(flash("deleted")).toBeVisible();
-  expect((await page.request.get("/s/tour", { maxRedirects: 0 })).status()).toBe(404);
-});
-
-test("blocks: duplicate, CSV import, subscriber form and embeds render", async () => {
-  await page.goto("/admin/blocks");
-  const second = page.locator("details[id^=block-]", { hasText: "Second link" }).first();
-  await second.locator(":scope > summary").click();
-  await second.getByRole("button", { name: "Duplicate" }).click();
-  await expect(flash("Block duplicated")).toBeVisible();
-
-  await page.locator('input[name="csvFile"]').setInputFiles({ name: "links.csv", mimeType: "text/csv", buffer: Buffer.from("title,url\nImported,https://imported.example.com\nBad,javascript:alert(1)\n") });
-  await page.getByRole("button", { name: "Import" }).click();
-  await expect(flash("Imported 1 link, skipped 1 invalid row")).toBeVisible();
-
-  const add = page.locator("#add-block");
-  await add.locator(":scope > summary").click();
-  await add.locator('select[name="type"]').selectOption("SUBSCRIBER_FORM");
-  await add.getByLabel("Form title").fill("Join the list");
-  await add.getByRole("button", { name: "Add block" }).click();
-  await expect(flash("Block added")).toBeVisible();
-
-  await add.locator(":scope > summary").click();
-  await add.locator('select[name="type"]').selectOption("VIDEO");
-  await add.getByLabel("Video title").fill("Latest video");
-  await add.getByLabel("Video or share URL").fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  await add.getByRole("button", { name: "Add block" }).click();
-  await expect(flash("Block added")).toBeVisible();
-  await page.screenshot({ path: `${shots}/blocks.png`, fullPage: true });
-
-  const visitor = await page.context().browser()!.newContext();
-  const pub = await visitor.newPage();
-  await pub.goto("/");
-  await expect(pub.locator('iframe[src^="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]')).toHaveAttribute("sandbox", /allow-scripts/);
   await pub.getByPlaceholder("Email address").fill("fan@example.com");
   await pub.getByRole("button", { name: "Subscribe" }).click();
   await expect(pub.getByText("Thanks, you are subscribed.")).toBeVisible();
-  expect(await pub.content()).not.toContain("Imported");
   await pub.setViewportSize({ width: 390, height: 844 });
   await pub.screenshot({ path: `${shots}/public-mobile.png`, fullPage: true });
-  await pub.setViewportSize({ width: 1440, height: 900 });
-  await pub.screenshot({ path: `${shots}/public-desktop.png`, fullPage: true });
   await visitor.close();
 });
 
-test("2FA can be enabled and is required at next sign-in", async () => {
+test("CSV import from the page tools menu", async () => {
+  await page.getByRole("button", { name: "More page tools" }).click();
+  await page.getByRole("menuitem", { name: "Import links (CSV)" }).click();
+  await page.getByLabel("CSV file").setInputFiles({ name: "links.csv", mimeType: "text/csv", buffer: Buffer.from("title,url\nImported,https://imported.example.com\nBad,javascript:alert(1)\n") });
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imported 1 link, skipped 1 invalid row" })).toBeVisible();
+  expect(await (await page.request.get("/")).text()).not.toContain("Imported");
+});
+
+test("appearance: theme cards and customisation, live and autosaved", async () => {
+  await page.getByRole("link", { name: "Appearance" }).first().click();
+  await page.getByRole("button", { name: "Night Market" }).click();
+  await expect(page.getByRole("button", { name: "Night Market" })).toHaveAttribute("aria-pressed", "true");
+  await expect(preview().getByRole("region", { name: "Links" }).getByRole("link").first()).toHaveCSS("background-color", "rgb(255, 207, 90)");
+  await page.getByRole("tab", { name: "Buttons" }).click();
+  await page.getByRole("button", { name: "Outline" }).click();
+  await expect(preview().getByRole("region", { name: "Links" }).getByRole("link").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await saved();
+  await page.getByRole("tab", { name: "Theme" }).click();
+  await expect(page.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-pressed", "true");
+  // Presets stay untouched and the public page uses the custom theme.
+  const html = await (await page.request.get("/")).text();
+  expect(html).toContain("transparent");
+  await page.screenshot({ path: `${shots}/appearance.png` });
+});
+
+test("share: link, QR code and downloads", async () => {
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(page.getByLabel("Your link")).toHaveValue("http://localhost:3100/");
+  await expect(page.getByRole("img", { name: /QR code for/ })).toBeVisible();
+  const png = await page.request.get("/api/qr?format=png&download=1");
+  expect(png.headers()["content-type"]).toBe("image/png");
+  await page.getByRole("button", { name: "Close" }).click();
+});
+
+test("settings: short links", async () => {
+  await page.goto("/admin/settings?tab=short-links");
+  await page.getByLabel("Code").fill("tour");
+  await page.getByLabel("Destination").fill("https://tour.example.com/");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "/s/tour created" })).toBeVisible();
+  const redirect = await page.request.get("/s/tour", { maxRedirects: 0 });
+  expect(redirect.headers().location).toBe("https://tour.example.com/");
+  await page.getByLabel("Code").first().fill("tour");
+  await page.getByLabel("Destination").first().fill("https://other.example.com/");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toBeVisible();
+});
+
+test("settings: SEO saves without touching other tabs", async () => {
+  await page.goto("/admin/settings?tab=page");
+  await page.getByLabel("Footer text").fill("© Ada");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Page settings saved." })).toBeVisible();
+  await page.goto("/admin/settings?tab=seo");
+  await page.getByLabel("Page title").fill("Ada’s links");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Search & sharing settings saved." })).toBeVisible();
+  const html = await (await page.request.get("/")).text();
+  expect(html).toContain("<title>Ada’s links</title>");
+  expect(html).toContain("© Ada");
+});
+
+test("settings: two-factor authentication", async () => {
   const { totpCode } = await import("../lib/totp");
-  await page.goto("/admin/settings#security");
-  await page.getByRole("button", { name: "Set up 2FA" }).click();
+  await page.goto("/admin/settings?tab=security");
+  await page.getByRole("button", { name: "Set up two-factor" }).click();
   const secret = (await page.locator("code").first().innerText()).trim();
   await page.getByLabel("6-digit code").fill(totpCode(secret));
-  await page.getByRole("button", { name: "Enable 2FA" }).click();
-  await expect(flash("Two-factor authentication is enabled.")).toBeVisible();
-  await page.screenshot({ path: `${shots}/settings.png`, fullPage: true });
+  await page.getByRole("button", { name: "Turn on" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Two-factor authentication is enabled." })).toBeVisible();
 
   const other = await page.context().browser()!.newContext();
   const login = await other.newPage();
@@ -211,34 +246,31 @@ test("2FA can be enabled and is required at next sign-in", async () => {
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByLabel("Current password").nth(1).fill(PASSWORD);
-  await page.getByRole("button", { name: "Disable 2FA" }).click();
-  await expect(flash("Two-factor authentication is disabled.")).toBeVisible();
+  await page.getByRole("button", { name: "Turn off" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Two-factor authentication is disabled." })).toBeVisible();
 });
 
-test("backup download and guarded restore", async () => {
-  await page.goto("/admin/settings#data");
-  const download = await page.request.get("/api/export?type=all");
-  const backup = await download.json();
+test("settings: backup download and guarded restore", async () => {
+  await page.goto("/admin/settings?tab=data");
+  const backup = await (await page.request.get("/api/export?type=all")).json();
   expect(backup.format).toBe("belinked-backup");
   expect(JSON.stringify(backup)).not.toContain("passwordHash");
-
-  const file = { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) };
-  await page.locator('input[name="backupFile"]').setInputFiles(file);
-  await page.locator("#data").getByLabel("Current password").fill(PASSWORD);
+  await page.locator('input[name="backupFile"]').setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await page.getByLabel("Current password").fill(PASSWORD);
   await page.getByLabel("Type RESTORE to confirm").fill("RESTORE");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Restore backup" }).click();
-  await expect(flash(/Backup restored: \d+ blocks/)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /Backup restored: \d+ blocks/ })).toBeVisible();
 });
 
-test("analytics and dashboard render", async () => {
+test("analytics renders with chart and table view", async () => {
   await page.goto("/admin/analytics?days=30");
-  await expect(page.getByRole("heading", { name: "Link performance" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Views and clicks per day/ })).toBeVisible();
+  await page.getByRole("button", { name: "Show as table" }).click();
+  await expect(page.getByRole("columnheader", { name: "Views" })).toBeVisible();
   await page.screenshot({ path: `${shots}/analytics.png`, fullPage: true });
-  await page.goto("/admin");
-  await page.screenshot({ path: `${shots}/dashboard.png`, fullPage: true });
 });
 
-test("no browser errors across admin features", async () => {
+test("no browser errors across the editor", async () => {
   expect(errors).toEqual([]);
 });

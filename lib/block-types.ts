@@ -13,7 +13,8 @@ export const blockTypes: BlockType[] = [
   "CONTACT",
   "EMBED",
   "PRODUCT",
-  "SUBSCRIBER_FORM"
+  "SUBSCRIBER_FORM",
+  "IMAGE"
 ];
 
 export const blockTypeHints: Record<BlockType, string> = {
@@ -29,7 +30,8 @@ export const blockTypeHints: Record<BlockType, string> = {
   CONTACT: "Use a mailto: or tel: URL, or any contact page URL.",
   EMBED: "Inline player from a supported provider (YouTube, Vimeo, Spotify, SoundCloud, Apple Music/Podcasts, Mixcloud, Twitch, Bandcamp). Other sites cannot be embedded, for safety.",
   PRODUCT: "Product card with optional image, price, and custom button label.",
-  SUBSCRIBER_FORM: "Collects subscriber emails locally. URL is optional."
+  SUBSCRIBER_FORM: "Collects subscriber emails locally. URL is optional.",
+  IMAGE: "A picture, with an optional link when tapped."
 };
 
 export const blockMetadataExamples: Record<BlockType, string> = {
@@ -45,7 +47,8 @@ export const blockMetadataExamples: Record<BlockType, string> = {
   CONTACT: '{"buttonLabel":"Email me","secondaryUrl":"tel:+123456789","secondaryLabel":"Call"}',
   EMBED: '{"embedUrl":"https://www.youtube.com/watch?v=...","caption":"Optional note"}',
   PRODUCT: '{"price":"$29","buttonLabel":"Shop now"}',
-  SUBSCRIBER_FORM: '{"inputPlaceholder":"Your email","submitLabel":"Join the list"}'
+  SUBSCRIBER_FORM: '{"inputPlaceholder":"Your email","submitLabel":"Join the list"}',
+  IMAGE: "{}"
 };
 
 export const blockTypeLabels: Record<BlockType, string> = {
@@ -61,5 +64,6 @@ export const blockTypeLabels: Record<BlockType, string> = {
   CONTACT: "Contact",
   EMBED: "Embed",
   PRODUCT: "Product",
-  SUBSCRIBER_FORM: "Email signup form"
+  SUBSCRIBER_FORM: "Email signup form",
+  IMAGE: "Image"
 };

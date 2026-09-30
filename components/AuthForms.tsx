@@ -7,7 +7,7 @@ import { SubmitButton } from "./SubmitButton";
 function ErrorBox({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">
+    <p role="alert" className="rounded-xl bg-[#fff1f1] p-3 text-sm font-semibold text-[var(--ui-danger)]">
       {message}
     </p>
   );
@@ -18,7 +18,7 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
   return (
     <form action={action} className="panel grid gap-4">
       {notice && !state ? (
-        <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-xl bg-[#effaf5] p-3 text-sm font-semibold text-[#0b6b4b]">
           {notice}
         </p>
       ) : null}
@@ -37,11 +37,11 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
         <label className="field">
           Authentication code
           <input className="input tracking-widest" name="totp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus />
-          <span className="text-xs text-black/55">Enter the 6-digit code from your authenticator app.</span>
+          <span className="field-hint">Enter the 6-digit code from your authenticator app.</span>
         </label>
       ) : null}
-      <SubmitButton pendingLabel="Signing in...">Sign in</SubmitButton>
-      <p className="text-xs text-black/55">Forgot your password? Run <code>npm run owner:reset-password</code> on the server (see README).</p>
+      <SubmitButton className="btn-accent" pendingLabel="Signing in…">Sign in</SubmitButton>
+      <p className="text-center text-xs text-muted">Forgot your password? Run <code>npm run owner:reset-password</code> on the server (see README).</p>
     </form>
   );
 }
@@ -57,7 +57,7 @@ export function SetupForm({ defaults = {} }: { defaults?: SetupFormDefaults }) {
     <form action={action} className="panel grid gap-4">
       <ErrorBox message={state?.error} />
       <label className="field">
-        Display name
+        Your name
         <input key={`n-${state?.displayName}`} className="input" name="displayName" defaultValue={state?.displayName ?? defaults.displayName} autoComplete="name" required />
       </label>
       <label className="field">
@@ -67,13 +67,13 @@ export function SetupForm({ defaults = {} }: { defaults?: SetupFormDefaults }) {
       <div className="field">
         <label htmlFor="setup-password">Password</label>
         <input id="setup-password" className="input" name="password" type="password" minLength={12} autoComplete="new-password" aria-describedby="setup-password-hint" required />
-        <span id="setup-password-hint" className="text-xs text-black/55">At least 12 characters. A passphrase works well.</span>
+        <span id="setup-password-hint" className="field-hint">At least 12 characters. A passphrase works well.</span>
       </div>
       <label className="field">
         Confirm password
         <input className="input" name="confirmPassword" type="password" minLength={12} autoComplete="new-password" required />
       </label>
-      <SubmitButton pendingLabel="Creating...">Create owner</SubmitButton>
+      <SubmitButton className="btn-accent" pendingLabel="Setting up…">Create my page</SubmitButton>
     </form>
   );
 }

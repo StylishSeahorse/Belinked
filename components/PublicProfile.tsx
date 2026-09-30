@@ -66,12 +66,9 @@ function GenericLinkBlock({ block, settings }: { block: PublicBlock; settings: T
   if (block.featured) {
     return (
       <a href={block.href} className={linkClass(block, "grid overflow-hidden text-center font-bold")} style={cardStyle(settings)}>
-        {block.imageUrl ? (
-          <Media url={block.imageUrl} className="aspect-[16/9] w-full object-cover" />
-        ) : (
-          <span className="grid aspect-[16/9] place-items-center">{iconFor(block.type)}</span>
-        )}
-        <span className="grid gap-1 px-4 py-3">
+        {/* Featured without an image is simply a larger, emphasised card. */}
+        {block.imageUrl ? <Media url={block.imageUrl} className="aspect-[16/9] w-full object-cover" /> : null}
+        <span className={`grid gap-1 px-4 ${block.imageUrl ? "py-3" : "py-6"}`}>
           <span className="text-base">{block.title}</span>
           {block.description ? <span className="text-xs font-medium opacity-80">{block.description}</span> : null}
         </span>
@@ -148,6 +145,24 @@ function renderBlock(block: PublicBlock, settings: ThemeSettings, subscribed: bo
           <p className="whitespace-pre-line text-sm leading-6" style={{ color: settings.muted }}>{block.description || block.title}</p>
         </div>
       );
+    case "IMAGE": {
+      if (!block.imageUrl) return null;
+      const image = (
+        <figure className="grid gap-2">
+          <Media url={block.imageUrl} className="w-full object-cover" />
+          {block.title && block.title !== "Image" ? <figcaption className="px-1 text-center text-sm opacity-80">{block.title}</figcaption> : null}
+        </figure>
+      );
+      return block.href ? (
+        <a key={block.id} href={block.href} className="bl-card block overflow-hidden" style={{ borderRadius: settings.radius }} aria-label={block.title}>
+          {image}
+        </a>
+      ) : (
+        <div key={block.id} className="overflow-hidden" style={{ borderRadius: settings.radius }}>
+          {image}
+        </div>
+      );
+    }
     case "SEPARATOR":
       return <hr key={block.id} className="border-current opacity-20" />;
     case "VIDEO":

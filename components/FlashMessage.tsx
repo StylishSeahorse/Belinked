@@ -3,7 +3,7 @@
 import { CheckCircle2, TriangleAlert, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-/** Renders ?notice= / ?error= flash messages set by server actions. */
+/** Renders ?notice= / ?error= flash messages set by form-based server actions. */
 export function FlashMessage() {
   const params = useSearchParams();
   const router = useRouter();
@@ -23,13 +23,11 @@ export function FlashMessage() {
   return (
     <div
       role={error ? "alert" : "status"}
-      className={`mb-5 flex items-start gap-3 rounded-lg border p-3 text-sm font-semibold ${
-        error ? "border-red-400/40 bg-red-500/15 text-red-100" : "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
-      }`}
+      className={`ui-pop mb-4 flex items-start gap-3 rounded-2xl border p-3 text-sm font-semibold ${error ? "border-[#f2c4c4] bg-[#fff5f5] text-[#a12a2a]" : "border-[#bfe8d6] bg-[#effaf5] text-[#0b6b4b]"}`}
     >
       {error ? <TriangleAlert size={18} className="mt-0.5 shrink-0" aria-hidden="true" /> : <CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" />}
       <p className="flex-1">{error || notice}</p>
-      <button type="button" onClick={dismiss} className="rounded p-0.5 hover:bg-white/10" aria-label="Dismiss message">
+      <button type="button" onClick={dismiss} className="rounded-full p-0.5 hover:bg-black/5" aria-label="Dismiss message">
         <X size={16} aria-hidden="true" />
       </button>
     </div>

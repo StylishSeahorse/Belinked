@@ -21,6 +21,7 @@ enum BlockType {
   EMBED
   PRODUCT
   SUBSCRIBER_FORM
+  IMAGE
 }
 
 enum BlockStatus {

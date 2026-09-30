@@ -39,7 +39,9 @@ This project is intentionally original in branding, UI, copy, and implementation
 - `/`
   Public profile page
 - `/admin`
-  Private dashboard
+  Visual editor: profile, links and blocks, with a live preview (home)
+- `/admin/appearance`, `/admin/analytics`, `/admin/settings`
+  Theme editor, analytics dashboard, technical settings
 - `/admin/setup`
   First-run owner creation
 - `/admin/login`
@@ -96,7 +98,7 @@ Then open:
 - Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
 - MailHog: [http://localhost:8025](http://localhost:8025)
 
-On first run, if no owner exists yet, Belinked will send you to `/admin/setup`. The setup form uses `SETUP_EMAIL` and `SETUP_DISPLAY_NAME` from `.env` as defaults.
+On first run, if no owner exists yet, Belinked will send you to `/admin/setup`. After creating your sign-in you land straight in the editor, with a short checklist to get your page ready. The setup form uses `SETUP_EMAIL` and `SETUP_DISPLAY_NAME` from `.env` as defaults.
 
 To stop the app without deleting data:
 
@@ -323,4 +325,4 @@ Belinked is already runnable locally with Docker and includes:
 - Short links
 - QR generation
 
-See [docs/audit-2026-09.md](docs/audit-2026-09.md) for the latest audit, feature inventory, architectural decisions and known limitations.
+See [docs/ux-redesign.md](docs/ux-redesign.md) for the editor's structure and design decisions, and [docs/audit-2026-09.md](docs/audit-2026-09.md) for the latest audit, feature inventory, architectural decisions and known limitations.

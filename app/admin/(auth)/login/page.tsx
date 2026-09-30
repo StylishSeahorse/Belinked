@@ -9,11 +9,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (!(await ownerExists())) redirect("/admin/setup");
   if (await currentOwner()) redirect("/admin");
   return (
-    <main className="grid min-h-screen place-items-center bg-paper p-4">
-      <section className="w-full max-w-md">
-        <h1 className="mb-4 text-3xl font-black">Owner sign in</h1>
-        <LoginForm next={params.next} notice={params.notice?.slice(0, 200)} />
-      </section>
-    </main>
+    <section className="grid gap-4">
+      <div className="text-center">
+        <h1 className="text-2xl font-black">Welcome back</h1>
+        <p className="text-sm text-muted">Sign in to edit your page.</p>
+      </div>
+      <LoginForm next={params.next} notice={params.notice?.slice(0, 200)} />
+    </section>
   );
 }

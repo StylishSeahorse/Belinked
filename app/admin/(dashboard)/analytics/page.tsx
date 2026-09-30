@@ -1,270 +1,223 @@
-import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bot, Download, Eye, MousePointerClick, Users } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { TrendChart } from "@/components/editor/TrendChart";
 import { analyticsSummary } from "@/lib/analytics";
 import { requireOwner } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Analytics" };
 
-type CountItem = {
-  label: string;
-  count: number;
-  share: number;
-};
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
-}
-
-function formatDelta(value: number, suffix = "") {
-  if (value === 0) return `No change${suffix}`;
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${formatNumber(value)}${suffix}`;
-}
+const RANGES: Array<[number, string]> = [
+  [1, "Today"],
+  [7, "7 days"],
+  [30, "30 days"],
+  [90, "90 days"],
+  [365, "12 months"]
+];
 
 function safeDays(value?: string) {
   const days = Number(value || 30);
-  return [7, 30, 90, 365].includes(days) ? days : 30;
+  return RANGES.some(([range]) => range === days) ? days : 30;
 }
 
-function MetricCard({
-  label,
-  value,
-  delta,
-  icon,
-  suffix = "",
-  tone = "cyan"
-}: {
-  label: string;
-  value: string | number;
-  delta: number;
-  icon: ReactNode;
-  suffix?: string;
-  tone?: "cyan" | "emerald" | "violet" | "amber";
-}) {
-  const toneClass = {
-    cyan: "from-cyan-400/20 text-cyan-100",
-    emerald: "from-emerald-400/20 text-emerald-100",
-    violet: "from-violet-400/20 text-violet-100",
-    amber: "from-amber-400/20 text-amber-100"
-  }[tone];
-  const isPositive = delta > 0;
-  const isNegative = delta < 0;
+const number = (value: number) => new Intl.NumberFormat("en-US").format(value);
 
+function Stat({ label, value, delta, suffix = "" }: { label: string; value: string; delta?: number; suffix?: string }) {
   return (
-    <section className="panel overflow-hidden">
-      <div className={`-mx-5 -mt-5 mb-4 flex items-center justify-between bg-gradient-to-br ${toneClass} to-transparent px-5 py-4`}>
-        <span className="text-sm font-semibold text-white/70">{label}</span>
-        <span className="rounded-md border border-white/10 bg-white/10 p-2">{icon}</span>
-      </div>
-      <strong className="block text-4xl font-black tracking-normal text-white">{typeof value === "number" ? formatNumber(value) : value}</strong>
-      <p className={`mt-2 inline-flex items-center gap-1 text-sm font-semibold ${isPositive ? "text-emerald-200" : isNegative ? "text-red-200" : "text-slate-300"}`}>
-        {isPositive ? <ArrowUpRight size={16} /> : isNegative ? <ArrowDownRight size={16} /> : <Activity size={16} />}
-        {formatDelta(delta, suffix)} vs previous period
-      </p>
-    </section>
+    <div className="panel grid gap-1 p-4 sm:p-5">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      <strong className="text-3xl font-black tabular-nums tracking-tight">{value}</strong>
+      {delta !== undefined ? (
+        <span className={`inline-flex items-center gap-1 text-xs font-bold ${delta > 0 ? "text-[var(--ui-success)]" : delta < 0 ? "text-[var(--ui-danger)]" : "text-muted"}`}>
+          {delta > 0 ? <ArrowUpRight size={13} aria-hidden="true" /> : delta < 0 ? <ArrowDownRight size={13} aria-hidden="true" /> : null}
+          {delta === 0 ? "No change" : `${delta > 0 ? "+" : ""}${number(delta)}${suffix}`}
+          <span className="font-semibold text-muted">vs previous</span>
+        </span>
+      ) : null}
+    </div>
   );
 }
 
-function BreakdownList({ title, items, empty = "No data yet." }: { title: string; items: CountItem[]; empty?: string }) {
+/** Ranked horizontal bars: one hue, thin, value labelled in text colour. */
+function RankedBars({ title, items, empty, valueLabel = "" }: { title: string; items: Array<{ label: string; count: number; share: number }>; empty: string; valueLabel?: string }) {
+  const max = Math.max(1, ...items.map((item) => item.count));
   return (
-    <section className="panel">
-      <h2 className="mb-4 text-lg font-black text-white">{title}</h2>
+    <section className="panel grid content-start gap-4">
+      <h2 className="font-black">{title}</h2>
       {items.length ? (
-        <div className="grid gap-3">
+        <ul className="grid gap-3">
           {items.map((item) => (
-            <div key={item.label} className="grid gap-1">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate font-semibold text-slate-100">{item.label}</span>
-                <span className="shrink-0 text-slate-300">{formatNumber(item.count)}</span>
+            <li key={item.label} className="grid gap-1">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="truncate font-semibold">{item.label}</span>
+                <span className="shrink-0 tabular-nums text-muted">
+                  <strong className="text-[var(--ui-ink)]">{number(item.count)}</strong> {valueLabel} · {item.share}%
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.max(4, item.share)}%` }} />
+              <div className="h-2 rounded-full bg-[#f0f0ec]">
+                <div className="h-2 rounded-full bg-[#2a78d6]" style={{ width: `${Math.max(2, (item.count / max) * 100)}%` }} />
               </div>
-              <span className="text-xs font-medium text-slate-400">{item.share}%</span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
-        <p className="text-sm text-slate-400">{empty}</p>
+        <p className="text-sm text-muted">{empty}</p>
       )}
     </section>
   );
 }
 
-function Timeline({ points, max }: { points: Array<{ date: string; label: string; views: number; clicks: number; subscribers: number }>; max: number }) {
+function Details({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="panel">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black text-white">Activity Over Time</h2>
-          <p className="text-sm text-slate-400">Daily views, clicks, and subscribers for the selected range.</p>
-        </div>
-        <div className="flex flex-wrap gap-3 text-xs font-semibold text-slate-300">
-          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-cyan-300" />Views</span>
-          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-violet-300" />Clicks</span>
-          <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-300" />Subscribers</span>
-        </div>
-      </div>
-      <div
-        className="flex h-56 items-end gap-2 overflow-x-auto pb-2"
-        role="img"
-        aria-label={`Daily activity chart: ${points.reduce((sum, point) => sum + point.views, 0)} views and ${points.reduce((sum, point) => sum + point.clicks, 0)} clicks in total.`}
-      >
-        {points.map((point) => {
-          const viewsHeight = Math.max(3, (point.views / max) * 100);
-          const clicksHeight = Math.max(3, (point.clicks / max) * 100);
-          const subscribersHeight = Math.max(3, (point.subscribers / max) * 100);
-          return (
-            <div key={point.date} className="grid min-w-10 flex-1 content-end gap-2">
-              <div className="flex h-44 items-end justify-center gap-1 rounded-md border border-white/5 bg-white/[.03] px-1 py-2" title={`${point.label}: ${point.views} views, ${point.clicks} clicks, ${point.subscribers} subscribers`}>
-                <span className="w-2 rounded-full bg-cyan-300" style={{ height: `${viewsHeight}%` }} />
-                <span className="w-2 rounded-full bg-violet-300" style={{ height: `${clicksHeight}%` }} />
-                <span className="w-2 rounded-full bg-emerald-300" style={{ height: `${subscribersHeight}%` }} />
-              </div>
-              <span className="truncate text-center text-xs font-semibold text-slate-400">{point.label}</span>
-            </div>
-          );
-        })}
-      </div>
+    <section className="grid content-start gap-3">
+      <h3 className="text-sm font-black">{title}</h3>
+      {children}
     </section>
   );
 }
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   await requireOwner();
-  const params = await searchParams;
-  const days = safeDays(params.days);
+  const days = safeDays((await searchParams).days);
+  const since = new Date(Date.now() - days * 86_400_000);
   const [summary, events, botCount] = await Promise.all([
     analyticsSummary(days),
-    prisma.event.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { block: { select: { title: true } } } }),
-    prisma.event.count({ where: { isBot: true, createdAt: { gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) } } })
+    prisma.event.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { block: { select: { title: true } } } }),
+    prisma.event.count({ where: { isBot: true, createdAt: { gte: since } } })
   ]);
+  const rangeLabel = RANGES.find(([range]) => range === days)?.[1] || "";
+  const hasData = summary.views + summary.clicks + summary.previous.views > 0;
 
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 px-4 py-6 sm:px-6 lg:py-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">Analytics</h1>
-          <p className="mt-1 text-sm text-slate-400">First-party performance data for your public page and links.</p>
+          <h1 className="text-2xl font-black">Analytics</h1>
+          <p className="text-sm text-muted">How visitors find and use your page. Private and cookie-free; bots are excluded.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <a className="btn-secondary" href={`/api/export?type=analytics&format=csv&days=${days}`}><Download size={16} aria-hidden="true" />CSV ({days}d)</a>
-          <a className="btn-secondary" href={`/api/export?type=analytics&format=json&days=${days}`}><Download size={16} aria-hidden="true" />JSON ({days}d)</a>
-        </div>
+        <nav className="segmented overflow-x-auto" aria-label="Date range">
+          {RANGES.map(([range, label]) => (
+            <Link key={range} href={`/admin/analytics?days=${range}`} aria-current={range === days ? "page" : undefined} className="whitespace-nowrap">
+              {label}
+            </Link>
+          ))}
+        </nav>
       </div>
 
-      <form className="panel flex flex-wrap items-end gap-3">
-        <label className="field max-w-xs flex-1">
-          Date range
-          <select className="input" name="days" defaultValue={days}>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="365">Last 365 days</option>
-          </select>
-        </label>
-        <button className="btn-secondary">Apply range</button>
-        <span className="text-sm font-semibold text-slate-400">Bot-filtered summary, {formatNumber(botCount)} bot events excluded.</span>
-      </form>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Profile views" value={summary.views} delta={summary.deltas.views} icon={<Eye size={20} />} />
-        <MetricCard label="Unique visitors" value={summary.visitors} delta={summary.deltas.visitors} icon={<Users size={20} />} />
-        <MetricCard label="Link clicks" value={summary.clicks} delta={summary.deltas.clicks} icon={<MousePointerClick size={20} />} tone="violet" />
-        <MetricCard label="Click-through rate" value={`${summary.ctr}%`} delta={summary.deltas.ctr} suffix=" pts" icon={<BarChart3 size={20} />} tone="amber" />
-        <MetricCard label="Subscribers" value={summary.subscribers} delta={summary.deltas.subscribers} icon={<Users size={20} />} tone="emerald" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Views" value={number(summary.views)} delta={summary.deltas.views} />
+        <Stat label="Visitors" value={number(summary.visitors)} delta={summary.deltas.visitors} />
+        <Stat label="Clicks" value={number(summary.clicks)} delta={summary.deltas.clicks} />
+        <Stat label="Click rate" value={`${summary.ctr}%`} delta={summary.deltas.ctr} suffix=" pts" />
       </div>
 
-      <Timeline points={summary.timeline} max={summary.maxDaily} />
+      {!hasData ? (
+        <section className="panel grid justify-items-center gap-2 py-10 text-center">
+          <h2 className="text-lg font-black">No visits yet</h2>
+          <p className="max-w-md text-sm text-muted">Share your page and numbers will appear here as people visit and tap your links. Your own visits while signed in are never counted.</p>
+        </section>
+      ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <section className="panel">
-          <h2 className="mb-4 text-lg font-black text-white">Link performance</h2>
+      {days > 1 ? (
+        <section className="panel grid gap-2">
+          <h2 className="font-black">Views and clicks · {rangeLabel}</h2>
+          <TrendChart points={summary.timeline.map((point) => ({ date: point.date, label: point.label, views: point.views, clicks: point.clicks }))} />
+        </section>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="panel grid content-start gap-4">
+          <h2 className="font-black">Top links</h2>
           {summary.linkPerformance.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th scope="col" className="py-2 pr-4">Link</th>
-                    <th scope="col" className="py-2 pr-4 text-right">Clicks</th>
-                    <th scope="col" className="py-2 pr-4 text-right">Unique</th>
-                    <th scope="col" className="py-2 text-right">CTR</th>
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th scope="col" className="pb-2">Link</th>
+                  <th scope="col" className="pb-2 text-right">Clicks</th>
+                  <th scope="col" className="pb-2 text-right">Click rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.linkPerformance.slice(0, 8).map((link) => (
+                  <tr key={link.key} className="border-t border-[var(--ui-border)]">
+                    <td className="max-w-[14rem] truncate py-2.5 pr-3 font-semibold">{link.label}</td>
+                    <td className="py-2.5 text-right tabular-nums">{number(link.clicks)}</td>
+                    <td className="py-2.5 text-right tabular-nums text-muted">{link.ctr}%</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {summary.linkPerformance.slice(0, 20).map((link) => (
-                    <tr key={link.key} className="border-t border-white/10">
-                      <td className="max-w-xs truncate py-2 pr-4 font-semibold text-slate-100">{link.label}</td>
-                      <td className="py-2 pr-4 text-right">{formatNumber(link.clicks)}</td>
-                      <td className="py-2 pr-4 text-right">{formatNumber(link.uniqueClickers)}</td>
-                      <td className="py-2 text-right">{link.ctr}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-2 text-xs text-slate-400">CTR = clicks ÷ profile views in this range.</p>
-            </div>
+                ))}
+              </tbody>
+            </table>
           ) : (
-            <p className="text-sm text-slate-400">No link clicks in this range yet.</p>
+            <p className="text-sm text-muted">No link clicks in this period yet.</p>
           )}
         </section>
-        <BreakdownList title="Top Referrers" items={summary.topReferrers} />
+        <RankedBars title="Traffic sources" items={summary.topReferrers} empty="No visits in this period yet." />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <BreakdownList title="Campaigns (UTM)" items={summary.campaigns} empty="No visits with utm_ parameters yet. Add ?utm_source=... to links you share." />
-        <BreakdownList title="Countries" items={summary.countries} empty="Country data needs a proxy/CDN that sends a country header (e.g. Cloudflare). No IP geolocation is performed." />
+        <RankedBars title="Devices" items={summary.devices} empty="No visits in this period yet." />
+        <RankedBars title="Countries" items={summary.countries} empty="Country data appears when your page is served through a CDN such as Cloudflare. No IP lookups are done." />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <BreakdownList title="Devices" items={summary.devices} />
-        <BreakdownList title="Browsers" items={summary.browsers} />
-        <BreakdownList title="Operating Systems" items={summary.operatingSystems} />
-      </div>
-
-      <section className="panel overflow-hidden">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black text-white">Recent Events</h2>
-            <p className="text-sm text-slate-400">Latest 100 raw events, including bots for inspection.</p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-300"><Bot size={16} />Bot visibility</span>
+      <details className="panel group">
+        <summary className="cursor-pointer list-none font-black">
+          More details <span className="text-sm font-semibold text-muted">· browsers, campaigns, raw events, export</span>
+        </summary>
+        <div className="mt-5 grid gap-6 md:grid-cols-2">
+          <Details title="Browsers">
+            <ul className="grid gap-1 text-sm">{summary.browsers.map((item) => <li key={item.label} className="flex justify-between"><span>{item.label}</span><span className="tabular-nums text-muted">{number(item.count)}</span></li>)}</ul>
+          </Details>
+          <Details title="Operating systems">
+            <ul className="grid gap-1 text-sm">{summary.operatingSystems.map((item) => <li key={item.label} className="flex justify-between"><span>{item.label}</span><span className="tabular-nums text-muted">{number(item.count)}</span></li>)}</ul>
+          </Details>
+          <Details title="Campaigns (UTM)">
+            {summary.campaigns.length ? (
+              <ul className="grid gap-1 text-sm">{summary.campaigns.map((item) => <li key={item.label} className="flex justify-between gap-3"><span className="truncate">{item.label}</span><span className="tabular-nums text-muted">{number(item.count)}</span></li>)}</ul>
+            ) : (
+              <p className="text-sm text-muted">Add ?utm_campaign=… to the link you share to track campaigns.</p>
+            )}
+          </Details>
+          <Details title="Export">
+            <p className="text-sm text-muted">{number(botCount)} bot visits were filtered out in this period.</p>
+            <div className="flex flex-wrap gap-2">
+              <a className="btn-secondary btn-sm" download href={`/api/export?type=analytics&format=csv&days=${days}`}>
+                <Download size={14} aria-hidden="true" /> CSV
+              </a>
+              <a className="btn-secondary btn-sm" download href={`/api/export?type=analytics&format=json&days=${days}`}>
+                <Download size={14} aria-hidden="true" /> JSON
+              </a>
+            </div>
+          </Details>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-400">
+        <div className="mt-6 overflow-x-auto">
+          <h3 className="mb-2 text-sm font-black">Latest activity</h3>
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="py-3 pr-4">Time</th>
-                <th className="py-3 pr-4">Type</th>
-                <th className="py-3 pr-4">Target</th>
-                <th className="py-3 pr-4">Referrer</th>
-                <th className="py-3 pr-4">Device</th>
-                <th className="py-3 pr-4">Bot</th>
+                <th scope="col" className="py-2">When (UTC)</th>
+                <th scope="col" className="py-2">What</th>
+                <th scope="col" className="py-2">Source</th>
+                <th scope="col" className="py-2">Device</th>
               </tr>
             </thead>
             <tbody>
               {events.map((event) => (
-                <tr key={event.id} className="border-t border-white/10">
-                  <td className="py-3 pr-4 text-slate-300"><time dateTime={event.createdAt.toISOString()}>{event.createdAt.toISOString().replace("T", " ").slice(0, 16)} UTC</time></td>
-                  <td className="py-3 pr-4 font-semibold text-white">{event.type.replaceAll("_", " ")}</td>
-                  <td className="max-w-xs truncate py-3 pr-4 text-slate-300">{event.block?.title || event.shortCode || event.path || event.targetUrl || "Profile"}</td>
-                  <td className="max-w-xs truncate py-3 pr-4 text-slate-400">{event.referrer || "Direct / unknown"}</td>
-                  <td className="py-3 pr-4 text-slate-300">{event.device || "Unknown"}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`rounded-md px-2 py-1 text-xs font-bold ${event.isBot ? "bg-red-400/10 text-red-200" : "bg-emerald-400/10 text-emerald-200"}`}>{event.isBot ? "Yes" : "No"}</span>
+                <tr key={event.id} className={`border-t border-[var(--ui-border)] ${event.isBot ? "text-muted" : ""}`}>
+                  <td className="py-2 tabular-nums">{event.createdAt.toISOString().replace("T", " ").slice(0, 16)}</td>
+                  <td className="max-w-[16rem] truncate py-2">
+                    {event.type === "PROFILE_VIEW" ? "Page view" : event.type === "SUBSCRIBER" ? "New subscriber" : `Click: ${event.block?.title || event.shortCode || "link"}`}
+                    {event.isBot ? " (bot)" : ""}
                   </td>
+                  <td className="max-w-[12rem] truncate py-2 text-muted">{event.referrer?.replace(/^https?:\/\/(www\.)?/, "") || "Direct"}</td>
+                  <td className="py-2 capitalize text-muted">{event.device || "—"}</td>
                 </tr>
               ))}
-              {!events.length ? (
-                <tr>
-                  <td className="py-6 text-center text-slate-400" colSpan={6}>No events recorded yet.</td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
-      </section>
+      </details>
     </div>
   );
 }
