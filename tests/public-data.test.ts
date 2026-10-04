@@ -67,3 +67,23 @@ describe("public block mapping", () => {
     expect(result.map((item) => item.id)).toEqual(["ok"]);
   });
 });
+
+import { isPackIcon, iconPack } from "../lib/icon-pack";
+
+describe("thumbnail icon pack", () => {
+  it("only accepts known icons", () => {
+    expect(isPackIcon("i:heart")).toBe(true);
+    expect(isPackIcon("s:instagram")).toBe(true);
+    expect(isPackIcon("i:not-a-real-icon")).toBe(false);
+    expect(isPackIcon("<svg onload=alert(1)>")).toBe(false);
+    expect(new Set(iconPack.map((icon) => icon.id)).size).toBe(iconPack.length);
+  });
+
+  it("passes a valid icon to the public page and drops anything else", () => {
+    const now = new Date("2026-06-01T00:00:00Z");
+    const [good] = publicBlocks([block({ icon: "i:ticket" })], now);
+    const [bad] = publicBlocks([block({ icon: "javascript:alert(1)" })], now);
+    expect(good.icon).toBe("i:ticket");
+    expect(bad.icon).toBeNull();
+  });
+});

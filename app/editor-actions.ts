@@ -11,6 +11,8 @@ import { readPlatformSettings, writePlatformSettings } from "@/lib/platform-sett
 import { prisma } from "@/lib/prisma";
 import { detectSocialPlatform, normalizeSocialUrl, socialLabelForIcon } from "@/lib/socials";
 import { normalizeTheme, type ThemeSettings } from "@/lib/themes";
+import { isPackIcon } from "@/lib/icon-pack";
+import { fetchThumbnailFor } from "@/lib/thumbnail";
 import { saveUploadedImage, saveUploadedMedia } from "@/lib/uploads";
 import { blockSchema, profileSchema, socialSchema } from "@/lib/validation";
 
@@ -133,6 +135,7 @@ export type BlockPatch = Partial<{
   startsAt: string | null;
   endsAt: string | null;
   status: BlockStatus;
+  icon: string | null;
   metadata: Record<string, unknown>;
 }>;
 
@@ -163,6 +166,7 @@ function validated(block: Omit<EditorBlock, "id" | "position" | "icon" | "tags">
     description: parsed.description ?? null,
     url: parsed.url ?? null,
     imageUrl: parsed.imageUrl ?? null,
+    icon: parsed.icon ?? null,
     featured: parsed.featured,
     animation: parsed.animation ?? null,
     utmSource: parsed.utmSource ?? null,
@@ -229,7 +233,11 @@ export async function updateBlock(id: string, patch: BlockPatch): Promise<Action
     for (const [key, value] of Object.entries(metadata)) if (value === "" || value === null) delete (metadata as Record<string, unknown>)[key];
     const merged = { ...current, ...patch, metadata: JSON.stringify(metadata) };
     if (merged.type === "LINK" && !merged.url) throw new UserError("A link needs a URL.");
-    const data = validated(merged);
+    if (merged.icon && !isPackIcon(merged.icon)) throw new UserError("Choose an icon from the list.");
+    // Validate the whole block, but write only what changed, so a concurrent update
+    // (e.g. an auto-fetched thumbnail) is never overwritten with stale values.
+    const validatedData = validated(merged);
+    const data = Object.fromEntries(Object.entries(validatedData).filter(([key]) => key in patch));
     const block = await prisma.block.update({ where: { id }, data });
     refresh();
     return serializeBlock(block);
@@ -258,6 +266,53 @@ export async function duplicateBlock(id: string): Promise<ActionResult<EditorBlo
     await writeOrder(insertAfter(await blockOrder(), copy.id, sourceId));
     await audit("block.duplicated");
     return serializeBlock(await prisma.block.findUniqueOrThrow({ where: { id: copy.id } }));
+  });
+}
+
+/** Block types whose card shows a thumbnail fetched from the linked page. */
+const THUMBNAIL_TYPES = new Set(["LINK", "PRODUCT", "NEWSLETTER", "CALENDAR"]);
+
+/**
+ * Fills a block's thumbnail from the page it links to.
+ * - "auto": after adding a link or changing its URL. Never replaces an uploaded image,
+ *   respects a removed auto thumbnail, and doesn't retry a URL it already tried.
+ * - "missing": bulk fill for links without any image (still respects removals).
+ * - "refresh": the explicit "Fetch from link" button; always tries.
+ */
+export async function autoThumbnail(id: string, mode: "auto" | "missing" | "refresh" = "auto"): Promise<ActionResult<{ block: EditorBlock; found: boolean }>> {
+  return run(async () => {
+    const block = await prisma.block.findUnique({ where: { id } });
+    if (!block) throw new UserError("That link no longer exists.");
+    const metadata = parseBlockMetadata(block.metadata) as Record<string, unknown>;
+    const unchanged = { block: serializeBlock(block), found: false };
+    const isWebLink = Boolean(block.url && /^https?:\/\//i.test(block.url) && THUMBNAIL_TYPES.has(block.type));
+    if (!isWebLink) {
+      if (mode === "refresh") throw new UserError("Only web links can fetch a thumbnail.");
+      return unchanged;
+    }
+    if (mode !== "refresh") {
+      if (metadata.autoThumbnail === "off" || block.icon) return unchanged; // removed, or an icon was chosen
+      if (block.imageUrl && metadata.autoThumbnail !== true) return unchanged; // owner's own image
+      if (mode === "missing" && block.imageUrl) return unchanged;
+      if (mode === "auto" && metadata.thumbnailSource === block.url) return unchanged;
+    }
+
+    let image: string | null = null;
+    try {
+      image = await fetchThumbnailFor(block.url!);
+    } catch {
+      image = null;
+    }
+    metadata.thumbnailSource = block.url;
+    if (!image) {
+      await prisma.block.update({ where: { id }, data: { metadata: JSON.stringify(metadata) } });
+      if (mode === "refresh") throw new UserError("Couldn't find an image on that page. You can upload one instead.");
+      return unchanged;
+    }
+    metadata.autoThumbnail = true;
+    const updated = await prisma.block.update({ where: { id }, data: { imageUrl: image, icon: null, metadata: JSON.stringify(metadata) } });
+    refresh();
+    return { block: serializeBlock(updated), found: true };
   });
 }
 

@@ -53,3 +53,13 @@ Everything uses the tokens in `app/globals.css` (canvas, surface, ink, muted, bo
 ## Verification
 
 Playwright covers the full owner journey on desktop and phone: setup, profile, add, keyboard and pointer reorder, publish, visitor click, analytics, hide link, logout and protection. It also covers uploads, socials, details/duplicate/undo-delete, every Add type, CSV import, appearance, share, settings tabs, 2FA and backup/restore. It asserts that no browser console errors occur.
+
+## Link thumbnails (October 2026)
+
+A link's thumbnail can come from three places, and the owner's choice always wins:
+
+1. **Automatic.** When a link is added or its URL changes, the server reads the page's preview image (`og:image` / `twitter:image`, falling back to the site's apple-touch-icon). It downloads the image through the SSRF-safe fetcher and stores it in local uploads, after the same type, signature, size and dimension checks as an upload (SVG is never accepted). Visitors never load third-party images. The owner can also use **Fetch from link** in the details panel, or **Fetch missing thumbnails** from the page tools menu.
+2. **Icon pack.** **Choose icon** opens a searchable set of about 80 general icons (Lucide, ISC licence) plus the social platform marks, stored as `Block.icon` (`i:<name>` / `s:<platform>`). Only known ids are accepted or rendered. Icons follow the theme's button colours.
+3. **Upload.**
+
+Uploading an image or choosing an icon is never overwritten automatically. Removing a thumbnail turns automatic fetching off for that link (`metadata.autoThumbnail = "off"`). Server-action uploads allow request bodies up to 60MB (`serverActions.bodySizeLimit`); the per-file limits are `UPLOAD_MAX_MB` (default 15) and `VIDEO_UPLOAD_MAX_MB`.

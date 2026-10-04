@@ -1,6 +1,7 @@
 import type { Block, Profile, SocialIcon } from "@prisma/client";
 import { isBlockVisible } from "./blocks";
 import { parseBlockMetadata, resolveEmbed, type EmbedKind } from "./block-metadata";
+import { isPackIcon } from "./icon-pack";
 import { safeThemeMediaUrl } from "./themes";
 import { safeHref } from "./validation";
 
@@ -16,6 +17,8 @@ export type PublicBlock = {
   description: string | null;
   href: string | null;
   imageUrl: string | null;
+  /** Built-in icon from lib/icon-pack, used when there is no image. */
+  icon: string | null;
   featured: boolean;
   animation: string | null;
   embed: { src: string; kind: EmbedKind; provider: string } | null;
@@ -61,6 +64,7 @@ export function toPublicBlock(block: Block): PublicBlock {
     // Outbound links always go through the click tracker, which re-validates the target.
     href: block.url && safeHref(block.url) ? `/api/click/${block.id}` : null,
     imageUrl: safeThemeMediaUrl(block.imageUrl) || null,
+    icon: isPackIcon(block.icon) ? block.icon : null,
     featured: block.featured,
     animation: block.animation === "pulse" ? "pulse" : null,
     embed,

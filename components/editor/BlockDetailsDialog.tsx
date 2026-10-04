@@ -4,7 +4,9 @@ import { Upload } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import type { BlockPatch } from "@/app/editor-actions";
 import { uploadMedia } from "@/components/editor/upload";
+import { IconPicker } from "@/components/editor/IconPicker";
 import { Dialog } from "@/components/ui/overlay";
+import { isPackIcon, PackIconGlyph } from "@/lib/icon-pack";
 import { useFeedback } from "@/components/ui/feedback";
 import { blockTypeLabels } from "@/lib/block-types";
 import type { EditorBlock } from "@/lib/editor-types";
@@ -22,7 +24,7 @@ function fromLocalInput(value: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
-function meta(block: EditorBlock): Record<string, string | number | undefined> {
+function meta(block: EditorBlock): Record<string, unknown> {
   try {
     return JSON.parse(block.metadata || "{}");
   } catch {
@@ -52,15 +54,21 @@ export function BlockDetailsDialog({
   block,
   onClose,
   onChange,
-  clicks
+  clicks,
+  onFetchThumbnail,
+  fetchingThumbnail = false
 }: {
   block: EditorBlock | null;
   onClose: () => void;
   onChange: (patch: BlockPatch) => void;
   clicks?: number;
+  /** Present for web links: pulls the preview image from the linked page. */
+  onFetchThumbnail?: () => Promise<boolean>;
+  fetchingThumbnail?: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [iconsOpen, setIconsOpen] = useState(false);
   const { toast } = useFeedback();
   if (!block) return <Dialog open={false} onClose={onClose} title="">{null}</Dialog>;
   const data = meta(block);
@@ -90,7 +98,18 @@ export function BlockDetailsDialog({
         </Section>
 
         {hasMedia(block.type) ? (
-          <Section title={block.type === "IMAGE" ? "Image" : "Thumbnail"} hint={block.type === "LINK" ? "Shown next to the title, or as a big banner on featured links." : undefined}>
+          <Section
+            title={block.type === "IMAGE" ? "Image" : "Thumbnail"}
+            hint={
+              onFetchThumbnail
+                ? data.autoThumbnail === true
+                  ? "Picked automatically from the linked page. Upload your own to replace it."
+                  : "Added automatically from the linked page when empty. Or upload your own, or pick an icon."
+                : block.type === "LINK"
+                  ? "Shown next to the title, or as a big banner on featured links."
+                  : undefined
+            }
+          >
             <div className="flex items-center gap-3">
               <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f1f1ee]">
                 {block.imageUrl && !/\.(mp4|webm|ogv|mov)$/i.test(block.imageUrl) ? (
@@ -98,6 +117,8 @@ export function BlockDetailsDialog({
                   <img src={block.imageUrl} alt="" className="h-full w-full object-cover" />
                 ) : block.imageUrl ? (
                   <span className="text-xs font-bold text-muted">Video</span>
+                ) : isPackIcon(block.icon) ? (
+                  <PackIconGlyph id={block.icon} className="h-7 w-7" />
                 ) : (
                   <Upload size={18} className="text-muted" aria-hidden="true" />
                 )}
@@ -106,8 +127,19 @@ export function BlockDetailsDialog({
                 <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => fileInput.current?.click()}>
                   {uploading ? "Uploading…" : block.imageUrl ? "Replace" : "Upload"}
                 </button>
-                {block.imageUrl && block.type !== "IMAGE" ? (
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => onChange({ imageUrl: null })}>
+                {block.type !== "IMAGE" ? (
+                  <button type="button" className="btn-secondary btn-sm" aria-expanded={iconsOpen} onClick={() => setIconsOpen((open) => !open)}>
+                    {iconsOpen ? "Hide icons" : "Choose icon"}
+                  </button>
+                ) : null}
+                {onFetchThumbnail ? (
+                  <button type="button" className="btn-secondary btn-sm" disabled={fetchingThumbnail} onClick={() => void onFetchThumbnail()}>
+                    {fetchingThumbnail ? "Fetching…" : "Fetch from link"}
+                  </button>
+                ) : null}
+                {(block.imageUrl || block.icon) && block.type !== "IMAGE" ? (
+                  // Removing turns automatic thumbnails off for this link.
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => onChange({ imageUrl: null, icon: null, metadata: { autoThumbnail: "off" } })}>
                     Remove
                   </button>
                 ) : null}
@@ -125,11 +157,22 @@ export function BlockDetailsDialog({
                   const result = await uploadMedia(file, "blocks", "media");
                   setUploading(false);
                   event.target.value = "";
-                  if (result.ok) onChange({ imageUrl: result.data });
+                  // An uploaded image is the owner's choice: never auto-replaced.
+                  if (result.ok) onChange({ imageUrl: result.data, icon: null, metadata: { autoThumbnail: null } });
                   else toast(result.error, { tone: "error" });
                 }}
               />
             </div>
+            {iconsOpen && block.type !== "IMAGE" ? (
+              <IconPicker
+                value={block.icon}
+                onSelect={(icon) => {
+                  // A chosen icon replaces any image and stops automatic thumbnails.
+                  onChange({ icon, imageUrl: null, metadata: { autoThumbnail: "off" } });
+                  setIconsOpen(false);
+                }}
+              />
+            ) : null}
           </Section>
         ) : null}
 

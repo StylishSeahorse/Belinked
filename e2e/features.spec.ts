@@ -144,6 +144,21 @@ test("thumbnail upload over 1MB from the details drawer", async () => {
   await expect(page.locator(`li:has(input[aria-label="Link title"]) img`).first()).toHaveAttribute("src", /^\/uploads\/blocks\//);
 });
 
+test("thumbnail icon pack: pick an icon without uploading", async () => {
+  await page.getByRole("button", { name: "More options for “First link”" }).click();
+  await page.getByRole("menuitem", { name: "Edit details" }).click();
+  await page.getByRole("button", { name: "Choose icon" }).click();
+  await page.getByPlaceholder("Search icons: shop, music, tickets…").fill("ticket");
+  await page.getByRole("button", { name: "Tickets", exact: true }).click();
+  await saved();
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.reload();
+  const html = await (await page.request.get("/")).text();
+  // First link is hidden in the flow spec, so check the stored value via the editor card instead.
+  expect(html).not.toContain("i:ticket");
+  await expect(page.locator(`li:has(input[aria-label="Link title"])`).first().locator("svg.lucide-ticket")).toBeVisible();
+});
+
 test("block actions: details drawer, duplicate, delete with undo", async () => {
   await page.getByRole("button", { name: "More options for “Second link”" }).click();
   await page.getByRole("menuitem", { name: "Edit details" }).click();

@@ -20,7 +20,8 @@ describe("link preview extraction", () => {
     expect(preview).toEqual({
       title: "Event Tickets",
       description: "A loud night out",
-      imageUrl: "https://example.com/images/poster.jpg"
+      imageUrl: "https://example.com/images/poster.jpg",
+      iconUrl: ""
     });
   });
 
@@ -51,5 +52,23 @@ describe("link preview extraction", () => {
 
     expect(jsonLdPreview.imageUrl).toBe("https://cdn.example.com/merch.webp");
     expect(srcsetPreview.imageUrl).toBe("https://example.com/small.jpg");
+  });
+});
+
+import { bestIcon } from "../lib/link-preview";
+
+describe("site icon fallback", () => {
+  it("prefers the largest apple-touch-icon and skips svg/ico", () => {
+    const html = `
+      <link rel="icon" href="/favicon.ico">
+      <link rel="icon" type="image/svg+xml" href="/icon.svg">
+      <link rel="icon" sizes="32x32" href="/icon-32.png">
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-180.png">
+      <link rel="apple-touch-icon" sizes="120x120" href="/apple-120.png">`;
+    expect(bestIcon(html, "https://example.com/page")).toBe("https://example.com/apple-180.png");
+  });
+
+  it("returns empty when only svg/ico icons exist", () => {
+    expect(bestIcon('<link rel="icon" href="/favicon.ico"><link rel="icon" href="/i.svg">', "https://example.com")).toBe("");
   });
 });

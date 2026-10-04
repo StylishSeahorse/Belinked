@@ -26,6 +26,21 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(0);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const nextId = useRef(1);
+  const region = useRef<HTMLDivElement>(null);
+
+  // Open dialogs live in the browser's top layer; toasts must too, or they render
+  // underneath a panel's backdrop. Re-showing the popover moves it above any dialog
+  // opened since.
+  useEffect(() => {
+    const element = region.current as (HTMLDivElement & { showPopover?: () => void; hidePopover?: () => void }) | null;
+    if (!element?.showPopover) return;
+    try {
+      if (element.matches(":popover-open")) element.hidePopover?.();
+      if (toasts.length) element.showPopover();
+    } catch {
+      // Popover API unavailable: fall back to the fixed-position z-index.
+    }
+  }, [toasts]);
 
   const toast = useCallback<FeedbackContext["toast"]>((message, options = {}) => {
     const id = nextId.current++;
@@ -64,7 +79,12 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   return (
     <Context.Provider value={value}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[70] flex flex-col items-center gap-2 px-4 md:bottom-6">
+      <div
+        ref={region}
+        popover="manual"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-20 top-auto z-[70] m-0 flex w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-0 px-4 md:bottom-6 [&:not(:popover-open)]:flex"
+      >
         {toasts.map((item) => (
           <div
             key={item.id}

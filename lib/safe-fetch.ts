@@ -90,7 +90,8 @@ export function assertPublicUrl(input: string | URL) {
   return url;
 }
 
-export type SafeResponse = { status: number; url: string; headers: http.IncomingHttpHeaders; body: string };
+/** `body` is the response as text; `bytes` the raw bytes. `truncated` is set when maxBytes was hit. */
+export type SafeResponse = { status: number; url: string; headers: http.IncomingHttpHeaders; body: string; bytes: Buffer; truncated: boolean };
 
 function requestOnce(url: URL, method: "GET" | "HEAD", timeoutMs: number, maxBytes: number, headers: Record<string, string>): Promise<SafeResponse> {
   const client = url.protocol === "https:" ? https : http;
@@ -98,16 +99,20 @@ function requestOnce(url: URL, method: "GET" | "HEAD", timeoutMs: number, maxByt
     const req = client.request(url, { method, headers, lookup: safeLookup, timeout: timeoutMs }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;
+      const finish = (truncated: boolean) => {
+        const bytes = Buffer.concat(chunks);
+        resolve({ status: res.statusCode || 0, url: url.toString(), headers: res.headers, body: bytes.toString("utf8"), bytes, truncated });
+      };
       res.on("data", (chunk: Buffer) => {
         size += chunk.length;
         if (size > maxBytes) {
           res.destroy();
-          resolve({ status: res.statusCode || 0, url: url.toString(), headers: res.headers, body: Buffer.concat(chunks).toString("utf8") });
+          finish(true);
           return;
         }
         chunks.push(chunk);
       });
-      res.on("end", () => resolve({ status: res.statusCode || 0, url: url.toString(), headers: res.headers, body: Buffer.concat(chunks).toString("utf8") }));
+      res.on("end", () => finish(false));
       res.on("error", reject);
     });
     req.on("timeout", () => req.destroy(new Error("The request timed out.")));

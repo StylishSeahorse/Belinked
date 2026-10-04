@@ -120,8 +120,29 @@ export function extractLinkPreviewFromHtml(html: string, baseUrl: string, fallba
   return {
     title: meta(html, "og:title") || meta(html, "twitter:title") || title(html) || fallbackTitle,
     description: meta(html, "og:description") || meta(html, "description") || meta(html, "twitter:description") || "",
-    imageUrl: image ? httpImage(image, baseUrl) : ""
+    imageUrl: image ? httpImage(image, baseUrl) : "",
+    iconUrl: bestIcon(html, baseUrl)
   };
+}
+
+/**
+ * The site's largest raster icon (apple-touch-icon preferred), used as a thumbnail
+ * when a page has no preview image. SVG and .ico are skipped.
+ */
+export function bestIcon(html: string, baseUrl: string) {
+  const tags = html.match(/<link\b[^>]*>/gi) || [];
+  const candidates: Array<{ href: string; score: number }> = [];
+  for (const tag of tags) {
+    const rel = (attr(tag, "rel") || "").toLowerCase().split(/\s+/);
+    const href = attr(tag, "href");
+    if (!href || !(rel.includes("apple-touch-icon") || rel.includes("apple-touch-icon-precomposed") || rel.includes("icon"))) continue;
+    const type = (attr(tag, "type") || "").toLowerCase();
+    if (/\.(svg|ico)(\?|#|$)/i.test(href) || type.includes("svg") || type.includes("icon")) continue;
+    const size = Math.max(0, ...(attr(tag, "sizes") || "").split(/\s+/).map((value) => Number(value.split("x")[0]) || 0));
+    candidates.push({ href, score: (rel.includes("icon") ? 0 : 1000) + (size || (rel.includes("icon") ? 16 : 180)) });
+  }
+  const best = candidates.sort((a, b) => b.score - a.score)[0];
+  return best ? httpImage(best.href, baseUrl) : "";
 }
 
 function httpImage(image: string, baseUrl: string) {

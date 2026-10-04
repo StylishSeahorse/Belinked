@@ -15,6 +15,8 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  ImageDown,
+  Loader2,
   Upload,
   X
 } from "lucide-react";
@@ -23,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { checkLinksAction, importLinksCsvAction, saveBlockLayoutAction } from "@/app/actions";
 import {
   addSocial,
+  autoThumbnail,
   type BlockPatch,
   deleteBlock,
   deleteSocial,
@@ -46,6 +49,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { Dialog, Menu, MenuItem, Switch } from "@/components/ui/overlay";
 import { blockTypeLabels } from "@/lib/block-types";
 import { iconForBlock, normalizeContactUrl, normalizeWebUrl } from "@/lib/content-catalog";
+import { isPackIcon, PackIconGlyph } from "@/lib/icon-pack";
 import { type EditorBlock, type EditorProfile, type EditorSocial, groupSize, rowsFromOrder } from "@/lib/editor-types";
 import { SocialGlyph, type SocialPlacement } from "@/lib/socials";
 import type { ThemeSettings } from "@/lib/themes";
@@ -83,6 +87,9 @@ function displayUrl(url?: string | null) {
   return (url || "").replace(/^(https?:\/\/(www\.)?|mailto:|tel:)/, "").replace(/\/$/, "");
 }
 
+/** Types whose thumbnail can be pulled from the linked page (matches the server). */
+const THUMBNAIL_TYPES = new Set(["LINK", "PRODUCT", "NEWSLETTER", "CALENDAR"]);
+
 const URL_TYPES = new Set(["LINK", "VIDEO", "MUSIC", "PODCAST", "EMBED", "NEWSLETTER", "CALENDAR", "CONTACT", "PRODUCT", "IMAGE"]);
 
 export function LinksEditor(props: Props) {
@@ -107,6 +114,7 @@ export function LinksEditor(props: Props) {
   const profilePatch = useRef<ProfilePatch>({});
   const deleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const checkForm = useRef<HTMLFormElement>(null);
+  const urlTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     try {
@@ -214,7 +222,63 @@ export function LinksEditor(props: Props) {
     toast("Duplicated. The copy is hidden until you switch it on.");
   }
 
+  const [fetchingThumbs, setFetchingThumbs] = useState<Set<string>>(() => new Set());
+
+  /** Pulls the linked page's preview image into the block (see autoThumbnail modes). */
+  const fillThumbnail = useCallback(
+    async (id: string, mode: "auto" | "missing" | "refresh" = "auto") => {
+      setFetchingThumbs((current) => new Set(current).add(id));
+      try {
+        const result = await autoThumbnail(id, mode);
+        if (!result.ok) {
+          if (mode === "refresh") toast(result.error, { tone: "error" });
+          return false;
+        }
+        if (result.data.found) {
+          const { imageUrl, metadata } = result.data.block;
+          setBlocks((current) => current.map((block) => (block.id === id ? { ...block, imageUrl, metadata } : block)));
+          if (mode === "refresh") toast("Thumbnail updated");
+        }
+        return result.data.found;
+      } catch {
+        if (mode === "refresh") toast("Couldn't fetch a thumbnail right now.", { tone: "error" });
+        return false;
+      } finally {
+        setFetchingThumbs((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [toast]
+  );
+
+  /** After a URL edit is saved, refresh an automatic thumbnail (never an uploaded one). */
+  const urlChanged = useCallback(
+    async (id: string) => {
+      await flush(`block:${id}`);
+      void fillThumbnail(id);
+    },
+    [fillThumbnail, flush]
+  );
+
+  async function fillMissingThumbnails() {
+    const targets = blocks.filter((block) => THUMBNAIL_TYPES.has(block.type) && !block.imageUrl && /^https?:\/\//.test(block.url || ""));
+    if (!targets.length) return toast("Every link already has a thumbnail.", { tone: "info" });
+    toast(`Fetching thumbnails for ${targets.length} link${targets.length === 1 ? "" : "s"}…`, { tone: "info" });
+    let found = 0;
+    const queue = [...targets];
+    await Promise.all(
+      Array.from({ length: 3 }, async () => {
+        for (let block = queue.shift(); block; block = queue.shift()) if (await fillThumbnail(block.id, "missing")) found += 1;
+      })
+    );
+    toast(found ? `Added ${found} thumbnail${found === 1 ? "" : "s"}${found < targets.length ? `; ${targets.length - found} page${targets.length - found === 1 ? "" : "s"} had no image` : ""}.` : "None of those pages had an image to use.", { tone: found ? "success" : "info" });
+  }
+
   function created(block: EditorBlock) {
+    if (THUMBNAIL_TYPES.has(block.type) && block.url && !block.imageUrl) void fillThumbnail(block.id);
     setBlocks((current) => [...current, block]);
     setAddOpen({ open: false });
     setHighlight(block.id);
@@ -448,6 +512,15 @@ export function LinksEditor(props: Props) {
                   >
                     Export links (CSV)
                   </MenuItem>
+                  <MenuItem
+                    icon={<ImageDown size={15} />}
+                    onSelect={() => {
+                      close();
+                      void fillMissingThumbnails();
+                    }}
+                  >
+                    Fetch missing thumbnails
+                  </MenuItem>
                 </>
               )}
             </Menu>
@@ -466,6 +539,8 @@ export function LinksEditor(props: Props) {
               onOpenDetails={setDetailsId}
               onDuplicate={duplicate}
               onRemove={remove}
+              onUrlChanged={urlChanged}
+              fetchingThumbs={fetchingThumbs}
             />
           ) : (
             <section className="grid justify-items-center gap-3 rounded-3xl border-2 border-dashed border-[var(--ui-border-strong)] px-6 py-12 text-center">
@@ -523,13 +598,25 @@ export function LinksEditor(props: Props) {
         onMoveSocial={moveSocial}
       />
       <BlockDetailsDialog
+        key={detailsId || "none"}
         block={detailsBlock}
         clicks={detailsBlock ? props.clicks[detailsBlock.id] : undefined}
         onClose={() => {
           if (detailsId) void flush(`block:${detailsId}`);
           setDetailsId(null);
         }}
-        onChange={(patch) => detailsId && patchBlock(detailsId, patch)}
+        onChange={(patch) => {
+          if (!detailsId) return;
+          patchBlock(detailsId, patch);
+          if ("url" in patch) {
+            // Refetch an automatic thumbnail once the new URL has settled.
+            const id = detailsId;
+            window.clearTimeout(urlTimer.current);
+            urlTimer.current = window.setTimeout(() => void urlChanged(id), 1200);
+          }
+        }}
+        onFetchThumbnail={detailsId && detailsBlock && THUMBNAIL_TYPES.has(detailsBlock.type) ? () => fillThumbnail(detailsId, "refresh") : undefined}
+        fetchingThumbnail={Boolean(detailsId && fetchingThumbs.has(detailsId))}
       />
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} title="Import links" description="Upload a CSV with title, url and (optional) description columns. Imported links start hidden so you can review them.">
         <form action={importLinksCsvAction} encType="multipart/form-data" className="grid gap-4">
@@ -562,7 +649,9 @@ function SortableBlocks({
   onPatch,
   onOpenDetails,
   onDuplicate,
-  onRemove
+  onRemove,
+  onUrlChanged,
+  fetchingThumbs
 }: {
   blocks: EditorBlock[];
   errors: Record<string, string>;
@@ -574,6 +663,8 @@ function SortableBlocks({
   onOpenDetails: (id: string) => void;
   onDuplicate: (block: EditorBlock) => void;
   onRemove: (block: EditorBlock) => void;
+  onUrlChanged: (id: string) => void;
+  fetchingThumbs: Set<string>;
 }) {
   const refs = useRef(new Map<string, HTMLLIElement>());
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -722,9 +813,13 @@ function SortableBlocks({
                 </button>
 
                 <button type="button" onClick={() => onOpenDetails(block.id)} className={`grid h-11 w-11 shrink-0 place-items-center self-center overflow-hidden rounded-xl bg-[#f1f1ee] ${hidden ? "opacity-50" : ""}`} aria-label={`Change image and settings for “${block.title}”`}>
-                  {isImage ? (
+                  {fetchingThumbs.has(block.id) ? (
+                    <Loader2 size={18} className="animate-spin text-muted" aria-label="Fetching thumbnail" />
+                  ) : isImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={block.imageUrl || ""} alt="" className="h-full w-full object-cover" />
+                  ) : isPackIcon(block.icon) ? (
+                    <PackIconGlyph id={block.icon} className="h-[18px] w-[18px]" />
                   ) : (
                     <Icon size={18} aria-hidden="true" />
                   )}
@@ -764,7 +859,10 @@ function SortableBlocks({
                       onBlur={(event) => {
                         const raw = event.target.value;
                         const next = block.type === "CONTACT" ? normalizeContactUrl(raw) : normalizeWebUrl(raw);
-                        if ((next || null) !== (block.url || null)) onPatch(block.id, { url: next || null }, 0);
+                        if ((next || null) !== (block.url || null)) {
+                          onPatch(block.id, { url: next || null }, 0);
+                          if (THUMBNAIL_TYPES.has(block.type)) onUrlChanged(block.id);
+                        }
                       }}
                       onKeyDown={(event) => event.key === "Enter" && (event.target as HTMLInputElement).blur()}
                       title={displayUrl(block.url)}

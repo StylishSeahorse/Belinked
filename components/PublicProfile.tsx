@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, Code2, ExternalLink, Mail, Music, Phone, Play, Radio, ShoppingBag } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { PackIconGlyph } from "@/lib/icon-pack";
 import type { MetaIntegrationData } from "@/lib/meta-integration";
 import type { PublicBlock, PublicProfileData, PublicSocial } from "@/lib/public-data";
 import type { SocialPlacement } from "@/lib/socials";
@@ -24,6 +25,11 @@ function iconFor(type: string) {
   if (type === "EMBED") return <Code2 {...props} />;
   if (type === "SUBSCRIBER_FORM" || type === "NEWSLETTER") return <Mail {...props} />;
   return <ExternalLink {...props} />;
+}
+
+/** The owner's chosen pack icon, or the default icon for the block type. */
+function blockIcon(block: PublicBlock, className: string) {
+  return block.icon ? <PackIconGlyph id={block.icon} className={className} /> : iconFor(block.type);
 }
 
 function isVideoMedia(url?: string | null) {
@@ -68,7 +74,8 @@ function GenericLinkBlock({ block, settings }: { block: PublicBlock; settings: T
       <a href={block.href} className={linkClass(block, "grid overflow-hidden text-center font-bold")} style={cardStyle(settings)}>
         {/* Featured without an image is simply a larger, emphasised card. */}
         {block.imageUrl ? <Media url={block.imageUrl} className="aspect-[16/9] w-full object-cover" /> : null}
-        <span className={`grid gap-1 px-4 ${block.imageUrl ? "py-3" : "py-6"}`}>
+        <span className={`grid justify-items-center gap-1 px-4 ${block.imageUrl ? "py-3" : "py-6"}`}>
+          {!block.imageUrl && block.icon ? <span className="mb-1">{blockIcon(block, "h-8 w-8")}</span> : null}
           <span className="text-base">{block.title}</span>
           {block.description ? <span className="text-xs font-medium opacity-80">{block.description}</span> : null}
         </span>
@@ -81,7 +88,7 @@ function GenericLinkBlock({ block, settings }: { block: PublicBlock; settings: T
         // eslint-disable-next-line @next/next/no-img-element
         <img src={block.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" loading="lazy" decoding="async" />
       ) : (
-        <span className="grid h-10 w-10 shrink-0 place-items-center">{iconFor(block.type)}</span>
+        <span className="grid h-10 w-10 shrink-0 place-items-center">{blockIcon(block, "h-[22px] w-[22px]")}</span>
       )}
       <span className="min-w-0 flex-1 break-words text-center">{block.title}</span>
       <span className="h-10 w-10 shrink-0" aria-hidden="true" />
@@ -95,7 +102,7 @@ function RichCard({ block, settings, children }: { block: PublicBlock; settings:
       {block.imageUrl && !block.embed ? <Media url={block.imageUrl} className="aspect-[16/9] w-full object-cover" /> : null}
       <div className="grid gap-3 p-4">
         <div className="flex items-start gap-3">
-          <span className="mt-1 shrink-0">{iconFor(block.type)}</span>
+          <span className="mt-1 shrink-0">{blockIcon(block, "h-[18px] w-[18px]")}</span>
           <div className="min-w-0">
             <h3 className="text-base font-bold">{block.title}</h3>
             {block.description ? <p className="mt-1 text-sm opacity-80">{block.description}</p> : null}

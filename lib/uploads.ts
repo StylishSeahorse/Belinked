@@ -27,13 +27,17 @@ async function saveUploadedFile(file: FormDataEntryValue | null, folder: string,
   if (file.size > maxMb * 1024 * 1024) {
     throw new UserError(`Upload must be ${maxMb}MB or smaller.`);
   }
-  const bytes = Buffer.from(await file.arrayBuffer());
-  if (!hasExpectedSignature(bytes, file.type)) {
+  return storeBytes(Buffer.from(await file.arrayBuffer()), file.type, folder, extension, label);
+}
+
+/** Validates bytes against their declared type (signature + image dimensions) and writes them under /uploads. */
+async function storeBytes(bytes: Buffer, type: string, folder: string, extension: string, label: string) {
+  if (!hasExpectedSignature(bytes, type)) {
     throw new UserError(`Upload content does not match the declared ${label}.`);
   }
 
-  if (type_is_image(file.type)) {
-    const size = imageDimensions(bytes, file.type);
+  if (type_is_image(type)) {
+    const size = imageDimensions(bytes, type);
     if (!size) throw new UserError("Could not read the image dimensions. Try re-exporting the image.");
     if (size.width > MAX_IMAGE_SIDE || size.height > MAX_IMAGE_SIDE || size.width * size.height > MAX_IMAGE_PIXELS) {
       throw new UserError(`Images must be at most ${MAX_IMAGE_SIDE}px on each side.`);
@@ -100,6 +104,19 @@ function hasExpectedSignature(bytes: Buffer, type: string) {
   if (type === "video/webm") return bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
   if (type === "video/ogg") return bytes.subarray(0, 4).toString("ascii") === "OggS";
   return false;
+}
+
+/**
+ * Stores image bytes fetched from elsewhere (e.g. a link's preview image) with exactly
+ * the same checks as an upload. Only JPG/PNG/WebP/GIF are accepted (never SVG).
+ */
+export async function saveImageBytes(bytes: Buffer, contentType: string, folder: string) {
+  const type = contentType.split(";")[0].trim().toLowerCase();
+  const extension = allowedImageTypes.get(type === "image/jpg" ? "image/jpeg" : type);
+  if (!extension) throw new UserError("That image format isn't supported.");
+  const maxMb = Number(process.env.UPLOAD_MAX_MB || 15);
+  if (bytes.length > maxMb * 1024 * 1024) throw new UserError(`Images must be ${maxMb}MB or smaller.`);
+  return storeBytes(bytes, type === "image/jpg" ? "image/jpeg" : type, folder, extension, "image");
 }
 
 export async function saveUploadedImage(file: FormDataEntryValue | null, folder: string) {
