@@ -2,7 +2,8 @@
 
 import { ArrowLeft, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createBlock, uploadFile, type BlockInput } from "@/app/editor-actions";
+import { createBlock, type BlockInput } from "@/app/editor-actions";
+import { uploadMedia } from "@/components/editor/upload";
 import { Dialog } from "@/components/ui/overlay";
 import { type CatalogItem, catalog, catalogGroups, normalizeContactUrl, normalizeWebUrl } from "@/lib/content-catalog";
 import type { EditorBlock } from "@/lib/editor-types";
@@ -139,10 +140,7 @@ function QuickForm({ item, onCreated }: { item: CatalogItem; onCreated: (block: 
   async function upload(file: File) {
     setBusy(true);
     setError("");
-    const form = new FormData();
-    form.set("file", file);
-    form.set("folder", "blocks");
-    const result = await uploadFile(form);
+    const result = await uploadMedia(file, "blocks");
     setBusy(false);
     if (result.ok) setImageUrl(result.data);
     else setError(result.error);

@@ -3,7 +3,7 @@
 import { Upload } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import type { BlockPatch } from "@/app/editor-actions";
-import { uploadFile } from "@/app/editor-actions";
+import { uploadMedia } from "@/components/editor/upload";
 import { Dialog } from "@/components/ui/overlay";
 import { useFeedback } from "@/components/ui/feedback";
 import { blockTypeLabels } from "@/lib/block-types";
@@ -122,11 +122,7 @@ export function BlockDetailsDialog({
                   const file = event.target.files?.[0];
                   if (!file) return;
                   setUploading(true);
-                  const form = new FormData();
-                  form.set("file", file);
-                  form.set("folder", "blocks");
-                  form.set("kind", "media");
-                  const result = await uploadFile(form);
+                  const result = await uploadMedia(file, "blocks", "media");
                   setUploading(false);
                   event.target.value = "";
                   if (result.ok) onChange({ imageUrl: result.data });

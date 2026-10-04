@@ -2,7 +2,8 @@
 
 import { Check, ImageIcon, Palette, Upload, Video } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
-import { saveCustomTheme, selectTheme, uploadFile } from "@/app/editor-actions";
+import { saveCustomTheme, selectTheme } from "@/app/editor-actions";
+import { uploadMedia } from "@/components/editor/upload";
 import { LivePreview, type PreviewData } from "@/components/editor/LivePreview";
 import { useAutosave } from "@/components/editor/useAutosave";
 import { useFeedback } from "@/components/ui/feedback";
@@ -163,11 +164,7 @@ export function AppearanceEditor({ themes: initialThemes, activeId, preview }: {
 
   async function upload(file: File, kind: "image" | "video") {
     setUploading(kind);
-    const form = new FormData();
-    form.set("file", file);
-    form.set("folder", "themes");
-    if (kind === "video") form.set("kind", "media");
-    const result = await track(uploadFile(form));
+    const result = await track(uploadMedia(file, "themes", kind === "video" ? "media" : "image"));
     setUploading(null);
     if (!result.ok) return toast(result.error, { tone: "error" });
     update(kind === "image" ? { backgroundImage: result.data, backgroundVideo: undefined } : { backgroundVideo: result.data });

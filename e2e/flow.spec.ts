@@ -44,7 +44,7 @@ async function addLink(title: string, url: string) {
   await dialog.getByLabel("URL", { exact: true }).fill(url);
   await dialog.getByLabel("Title", { exact: true }).fill(title);
   await dialog.getByRole("button", { name: "Add link" }).click();
-  await expect(owner.getByRole("status").filter({ hasText: "Link added" })).toBeVisible();
+  await expect(owner.getByRole("status").filter({ hasText: "Link added" }).first()).toBeVisible();
 }
 
 async function cardTitles() {
@@ -161,6 +161,8 @@ test("7-8. a visitor sees the page, clicks a link, and analytics records it", as
   const links = visitor.page.getByRole("region", { name: "Links" }).getByRole("link");
   await expect(links.nth(0)).toContainText("First link");
   expect(await visitor.page.content()).not.toContain("first.example.com");
+  // Single-owner page: no @username handle is shown.
+  await expect(visitor.page.getByText("@local-profile")).toHaveCount(0);
   await beacon;
   await visitor.page.waitForTimeout(300);
   await links.nth(0).click();

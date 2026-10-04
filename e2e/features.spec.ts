@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
-import { deflateSync } from "node:zlib";
+import { crc32, deflateSync } from "node:zlib";
 
 // Runs after flow.spec.ts (owner + content exist). Exercises the rest of the editor.
 
@@ -37,6 +37,29 @@ function pngBuffer() {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
+/** A ~2.4MB PNG: larger than Next's default 1MB server-action body limit. */
+function largePng() {
+  const width = 900;
+  const height = 900;
+  const raw = Buffer.alloc((width * 3 + 1) * height);
+  for (let index = 0; index < raw.length; index += 1) raw[index] = (index * 7919) & 255;
+  const small = pngBuffer();
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const chunk = (type: string, data: Buffer) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([length, body, sum]);
+  };
+  return Buffer.concat([small.subarray(0, 8), chunk("IHDR", header), chunk("IDAT", deflateSync(raw, { level: 0 })), chunk("IEND", Buffer.alloc(0))]);
+}
+
 test.describe.configure({ mode: "serial" });
 
 let page: Page;
@@ -66,7 +89,10 @@ test("profile picture: real image uploads, spoofed file is rejected", async () =
   await page.getByRole("button", { name: /Edit profile/ }).click();
   await page.getByLabel("Upload profile picture").setInputFiles({ name: "evil.png", mimeType: "image/png", buffer: Buffer.from("<script>alert(1)</script>") });
   await expect(page.getByRole("alert").filter({ hasText: "does not match" })).toBeVisible();
-  await page.getByLabel("Upload profile picture").setInputFiles({ name: "avatar.png", mimeType: "image/png", buffer: pngBuffer() });
+  // Regression: real photos are over 1MB and used to fail silently.
+  const big = largePng();
+  expect(big.length).toBeGreaterThan(2 * 1024 * 1024);
+  await page.getByLabel("Upload profile picture").setInputFiles({ name: "avatar.png", mimeType: "image/png", buffer: big });
   await expect(toast("Profile picture updated")).toBeVisible();
   const src = await page.locator("dialog[open] img").first().getAttribute("src");
   expect(src).toMatch(/^\/uploads\/profile\/.+\.png$/);
@@ -92,6 +118,30 @@ test("social icons: detected from pasted links, reorderable, shown publicly", as
   await page.getByRole("button", { name: "Close" }).click();
   const hrefs = await (await page.request.get("/")).text();
   expect(hrefs.indexOf('href="mailto:ada@example.com"')).toBeGreaterThan(-1);
+});
+
+test("block menu opens above the cards below it", async () => {
+  await page.getByRole("button", { name: "More options for “Second link”" }).click();
+  const item = page.getByRole("menuitem", { name: "Delete" });
+  await item.scrollIntoViewIfNeeded();
+  const box = (await item.boundingBox())!;
+  const hit = await page.evaluate(([x, y]) => {
+    const element = document.elementFromPoint(x, y);
+    return element?.closest('[role="menu"]') ? "menu" : `${element?.tagName}.${String(element?.className).slice(0, 60)}`;
+  }, [box.x + box.width / 2, box.y + box.height / 2]);
+  expect(hit).toBe("menu");
+  await page.keyboard.press("Escape");
+});
+
+test("thumbnail upload over 1MB from the details drawer", async () => {
+  await page.getByRole("button", { name: "More options for “Second link”" }).click();
+  await page.getByRole("menuitem", { name: "Edit details" }).click();
+  await page.getByLabel("Upload thumbnail").setInputFiles({ name: "thumb.png", mimeType: "image/png", buffer: largePng() });
+  await expect(page.locator("dialog[open] img").first()).toHaveAttribute("src", /^\/uploads\/blocks\/.+\.png$/);
+  await saved();
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.reload();
+  await expect(page.locator(`li:has(input[aria-label="Link title"]) img`).first()).toHaveAttribute("src", /^\/uploads\/blocks\//);
 });
 
 test("block actions: details drawer, duplicate, delete with undo", async () => {

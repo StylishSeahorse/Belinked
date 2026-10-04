@@ -103,7 +103,7 @@ function hasExpectedSignature(bytes: Buffer, type: string) {
 }
 
 export async function saveUploadedImage(file: FormDataEntryValue | null, folder: string) {
-  return saveUploadedFile(file, folder, allowedImageTypes, Number(process.env.UPLOAD_MAX_MB || 5), "JPG, PNG, WebP, or GIF image");
+  return saveUploadedFile(file, folder, allowedImageTypes, Number(process.env.UPLOAD_MAX_MB || 15), "JPG, PNG, WebP, or GIF image");
 }
 
 export async function saveUploadedVideo(file: FormDataEntryValue | null, folder: string) {

@@ -100,13 +100,6 @@ export function ProfileDialog({
             Display name
             <input className="input" value={profile.displayName} maxLength={80} onChange={(event) => onProfileChange({ displayName: event.target.value })} />
           </label>
-          <label className="field">
-            Username
-            <span className="flex items-center rounded-xl border border-[var(--ui-border-strong)] bg-white pl-3.5 focus-within:border-[var(--ui-accent)]">
-              <span className="text-sm text-muted">@</span>
-              <input className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-normal outline-none" value={profile.username} maxLength={80} onChange={(event) => onProfileChange({ username: event.target.value.replace(/^@/, "") })} />
-            </span>
-          </label>
           <div className="field">
             <label htmlFor="profile-bio">Bio</label>
             <textarea id="profile-bio" className="input" rows={3} maxLength={280} value={profile.bio} onChange={(event) => onProfileChange({ bio: event.target.value })} placeholder="Tell visitors who you are" aria-describedby="profile-bio-count" />

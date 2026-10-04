@@ -11,7 +11,6 @@ export type EditorSocial = Pick<SocialIcon, "id" | "label" | "url" | "icon" | "i
 export type EditorProfile = {
   id: string;
   displayName: string;
-  username: string;
   bio: string;
   badge: string | null;
   avatarUrl: string | null;

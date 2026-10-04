@@ -33,9 +33,9 @@ import {
   setSocialPlacement,
   updateBlock,
   updateProfile,
-  updateSocial,
-  uploadFile
+  updateSocial
 } from "@/app/editor-actions";
+import { uploadMedia } from "@/components/editor/upload";
 import { usePageStatus } from "@/components/editor/AppShell";
 import { AddContentDialog } from "@/components/editor/AddContentDialog";
 import { BlockDetailsDialog } from "@/components/editor/BlockDetailsDialog";
@@ -246,10 +246,7 @@ export function LinksEditor(props: Props) {
   );
 
   async function uploadAvatar(file: File) {
-    const form = new FormData();
-    form.set("file", file);
-    form.set("folder", "profile");
-    const result = await track(uploadFile(form));
+    const result = await track(uploadMedia(file, "profile"));
     if (!result.ok) return toast(result.error, { tone: "error" });
     changeProfile({ avatarUrl: result.data });
     await flush("profile");
@@ -398,7 +395,6 @@ export function LinksEditor(props: Props) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xl font-black">{profile.displayName || "Add your name"}</span>
-              <span className="block text-sm text-muted">@{profile.username || "username"}</span>
               <span className={`mt-1 line-clamp-2 block text-sm ${profile.bio ? "" : "text-muted italic"}`}>{profile.bio || "Add a bio so visitors know who you are"}</span>
             </span>
             <span className="btn-secondary btn-sm pointer-events-none hidden shrink-0 group-hover:bg-[#f5f5f3] sm:inline-flex">
@@ -688,11 +684,17 @@ function SortableBlocks({
                 else refs.current.delete(block.id);
               }}
               className="relative scroll-mt-24"
-              style={{
-                transform: dragging ? `translateY(${drag.dy}px) scale(1.02)` : `translateY(${shift(index)}px)`,
-                transition: dragging ? "none" : "transform 160ms ease",
-                zIndex: dragging ? 20 : undefined
-              }}
+              // Transforms create a stacking context that would hide an open ⋮ menu
+              // under the next card, so they are only applied while dragging.
+              style={
+                drag
+                  ? {
+                      transform: dragging ? `translateY(${drag.dy}px) scale(1.02)` : `translateY(${shift(index)}px)`,
+                      transition: dragging ? "none" : "transform 160ms ease",
+                      zIndex: dragging ? 20 : undefined
+                    }
+                  : undefined
+              }
             >
               <div
                 className={`flex items-stretch gap-1 rounded-3xl border bg-white py-3 pl-1.5 pr-2 transition-shadow sm:gap-2 ${dragging ? "border-[var(--ui-accent)] shadow-2xl" : "border-[var(--ui-border)] shadow-sm"} ${hidden ? "border-dashed" : ""} ${highlight === block.id ? "ui-flash" : ""}`}

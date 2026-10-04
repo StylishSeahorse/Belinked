@@ -34,7 +34,6 @@ export default async function AppearancePage() {
         profile: {
           id: profile.id,
           displayName: profile.displayName,
-          username: profile.username,
           bio: profile.bio,
           badge: profile.badge,
           avatarUrl: profile.avatarUrl,

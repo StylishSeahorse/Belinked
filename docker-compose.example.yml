@@ -27,7 +27,7 @@ services:
       SMTP_PORT: "1025"
 
       STORAGE_MODE: "local"
-      UPLOAD_MAX_MB: "5"
+      UPLOAD_MAX_MB: "15"
       VIDEO_UPLOAD_MAX_MB: "50"
     volumes:
       - belinked-data:/app/data

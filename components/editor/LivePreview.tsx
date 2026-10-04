@@ -48,7 +48,6 @@ export function LivePreview({ data, compact = false }: { data: PreviewData; comp
       profile: {
         id: data.profile.id,
         displayName: data.profile.displayName || "Your name",
-        username: data.profile.username,
         bio: data.profile.bio,
         badge: data.profile.badge,
         avatarUrl: safeThemeMediaUrl(data.profile.avatarUrl) || null,

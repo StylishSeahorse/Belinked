@@ -31,7 +31,6 @@ export async function publicProfileMetadata(): Promise<Metadata> {
       url: "/",
       title,
       description,
-      username: profile.username || undefined,
       images: image ? [image] : undefined
     },
     twitter: {

@@ -50,12 +50,12 @@ async function writeOrder(order: string[]) {
 // Profile & publishing
 // ---------------------------------------------------------------------------
 
-export type ProfilePatch = Partial<{ displayName: string; username: string; bio: string; badge: string | null; avatarUrl: string | null; logoUrl: string | null; cookieNoticeEnabled: boolean }>;
+export type ProfilePatch = Partial<{ displayName: string; bio: string; badge: string | null; avatarUrl: string | null; logoUrl: string | null; cookieNoticeEnabled: boolean }>;
 
 export async function updateProfile(patch: ProfilePatch) {
   return run(async () => {
-    const schema = profileSchema.pick({ displayName: true, username: true, bio: true, badge: true, avatarUrl: true, logoUrl: true, cookieNoticeEnabled: true }).partial();
-    const input = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, value === null ? undefined : typeof value === "string" && key === "username" ? value.replace(/^@/, "") : value]));
+    const schema = profileSchema.pick({ displayName: true, bio: true, badge: true, avatarUrl: true, logoUrl: true, cookieNoticeEnabled: true }).partial();
+    const input = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, value === null ? undefined : value]));
     const parsed = schema.parse(input);
     const data: Record<string, unknown> = { ...parsed };
     for (const key of ["badge", "avatarUrl", "logoUrl"] as const) {

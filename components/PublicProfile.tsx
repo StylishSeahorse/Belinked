@@ -380,11 +380,6 @@ export function PublicProfile({
           )}
           <div>
             <h1 className={`${titleSize} break-words font-black`}>{profile.displayName}</h1>
-            {profile.username ? (
-              <p className="text-sm" style={{ color: settings.muted }}>
-                @{profile.username}
-              </p>
-            ) : null}
           </div>
           {profile.badge ? (
             <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: settings.accent, color: "#fff" }}>

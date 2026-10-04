@@ -38,6 +38,12 @@ const csp = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  experimental: {
+    // Uploads go through server actions, whose default 1MB body limit rejects most
+    // photos. Per-file limits (UPLOAD_MAX_MB, VIDEO_UPLOAD_MAX_MB, backups) are still
+    // enforced in lib/uploads.ts and the restore action.
+    serverActions: { bodySizeLimit: "60mb" }
+  },
   images: {
     remotePatterns: []
   },

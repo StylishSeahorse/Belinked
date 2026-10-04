@@ -36,7 +36,6 @@ export type PublicSocial = { id: string; label: string; icon: string; url: strin
 export type PublicProfileData = {
   id: string;
   displayName: string;
-  username: string;
   bio: string;
   badge: string | null;
   avatarUrl: string | null;
@@ -93,7 +92,6 @@ export function toPublicProfile(profile: Profile): PublicProfileData {
   return {
     id: profile.id,
     displayName: profile.displayName,
-    username: profile.username,
     bio: profile.bio,
     badge: profile.badge,
     avatarUrl: safeThemeMediaUrl(profile.avatarUrl) || null,
